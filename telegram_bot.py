@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import List, Optional
 from pyrogram import Client, filters
@@ -52,6 +53,10 @@ async def handle_quiz_message(client: Client, message: Message):
             return
 
         logger.info(f"Selected Answer: {answer_key} -> {parsed.options.get(answer_key)}")
+
+        if config.ANSWER_DELAY_SECONDS > 0:
+            logger.info(f"Waiting {config.ANSWER_DELAY_SECONDS} seconds before submitting answer...")
+            await asyncio.sleep(config.ANSWER_DELAY_SECONDS)
 
         await submit_answer(client, message, answer_key, parsed.options)
     except Exception as e:
