@@ -42,7 +42,10 @@ def _solve_with_openai(prompt: str) -> str:
         raise ValueError("OPENAI_API_KEY is not configured in environment")
 
     from openai import OpenAI
-    client = OpenAI(api_key=config.OPENAI_API_KEY)
+    client_kwargs = {"api_key": config.OPENAI_API_KEY}
+    if config.OPENAI_BASE_URL:
+        client_kwargs["base_url"] = config.OPENAI_BASE_URL
+    client = OpenAI(**client_kwargs)
 
     response = client.chat.completions.create(
         model=config.OPENAI_MODEL,
