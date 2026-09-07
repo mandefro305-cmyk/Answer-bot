@@ -8,7 +8,7 @@ class Config:
     TELEGRAM_API_HASH: str = os.getenv("TELEGRAM_API_HASH", "")
     TELEGRAM_STRING_SESSION: str = os.getenv("TELEGRAM_STRING_SESSION", "")
     TARGET_QUIZ_BOT: str = os.getenv("TARGET_QUIZ_BOT", "BirrForexChallengeBot")
-    ANSWER_DELAY_SECONDS: int = int(os.getenv("ANSWER_DELAY_SECONDS", "8"))
+    ANSWER_DELAY_SECONDS: int = int(os.getenv("ANSWER_DELAY_SECONDS", "5"))
 
     AI_PROVIDER: str = os.getenv("AI_PROVIDER", "openai").lower()
 
