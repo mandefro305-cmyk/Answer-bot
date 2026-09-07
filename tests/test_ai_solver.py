@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from ai_solver import solve_quiz, _solve_with_openai, _solve_with_gemini
 
+@patch("config.config.OPENAI_API_KEY", "mock-openai-key")
 @patch("ai_solver._solve_with_openai")
 def test_solve_quiz_openai(mock_openai):
     mock_openai.return_value = "A"
@@ -12,6 +13,7 @@ def test_solve_quiz_openai(mock_openai):
     assert ans == "A"
     mock_openai.assert_called_once()
 
+@patch("config.config.GEMINI_API_KEY", "mock-gemini-key")
 @patch("ai_solver._solve_with_gemini")
 def test_solve_quiz_gemini(mock_gemini):
     mock_gemini.return_value = "B) Standard"
@@ -46,3 +48,19 @@ def test_gemini_api_call(mock_genai_cls):
 
     res = _solve_with_gemini("Test prompt")
     assert res == "D"
+
+@patch("config.config.OPENAI_API_KEY", "mock-openai-key")
+@patch("config.config.GEMINI_API_KEY", "mock-gemini-key")
+@patch("ai_solver._solve_with_openai")
+@patch("ai_solver._solve_with_gemini")
+def test_solve_quiz_fallback(mock_gemini, mock_openai):
+    mock_openai.side_effect = Exception("Connection error to OpenAI")
+    mock_gemini.return_value = "B"
+
+    question = "What is contract size?"
+    options = {"A": "100k", "B": "10k"}
+
+    ans = solve_quiz(question, options, provider="openai")
+    assert ans == "B"
+    mock_openai.assert_called_once()
+    mock_gemini.assert_called_once()

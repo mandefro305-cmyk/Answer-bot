@@ -23,13 +23,32 @@ def solve_quiz(question: str, options: Dict[str, str], provider: Optional[str] =
 
     raw_answer = ""
 
+    providers_to_try = []
     if selected_provider == "gemini":
-        raw_answer = _solve_with_gemini(prompt)
+        providers_to_try = ["gemini", "openai"]
     else:
-        raw_answer = _solve_with_openai(prompt)
+        providers_to_try = ["openai", "gemini"]
+
+    used_provider = None
+    for p in providers_to_try:
+        try:
+            if p == "gemini":
+                if not config.GEMINI_API_KEY:
+                    continue
+                raw_answer = _solve_with_gemini(prompt)
+            else:
+                if not config.OPENAI_API_KEY:
+                    continue
+                raw_answer = _solve_with_openai(prompt)
+
+            if raw_answer:
+                used_provider = p
+                break
+        except Exception as e:
+            logger.warning(f"Provider '{p}' failed with error: {e}. Trying alternative provider if available...")
 
     if not raw_answer:
-        logger.error("AI solver returned empty response")
+        logger.error("All configured AI solvers failed or returned empty responses.")
         return None
 
     # Parse key from answer
@@ -43,8 +62,12 @@ def _solve_with_openai(prompt: str) -> str:
 
     from openai import OpenAI
     client_kwargs = {"api_key": config.OPENAI_API_KEY}
-    if config.OPENAI_BASE_URL:
-        client_kwargs["base_url"] = config.OPENAI_BASE_URL
+    base_url = config.OPENAI_BASE_URL
+    if base_url:
+        if not base_url.startswith(("http://", "https://")):
+            base_url = f"https://{base_url}"
+        client_kwargs["base_url"] = base_url
+
     client = OpenAI(**client_kwargs)
 
     response = client.chat.completions.create(
