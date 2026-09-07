@@ -60,6 +60,13 @@ def parse_quiz(text: str, inline_buttons: Optional[List[str]] = None) -> Optiona
                     key = single_match.group(1).upper()
                     options[key] = key  # Standalone letter option
 
+        # Fallback: if buttons exist but had no letter prefixes/matches, map them sequentially A, B, C, D...
+        if not options and inline_buttons:
+            letters = ["A", "B", "C", "D", "E", "F"]
+            for idx, btn_text in enumerate(inline_buttons):
+                if idx < len(letters):
+                    options[letters[idx]] = btn_text.strip()
+
     if not question_text or not options:
         return None
 
