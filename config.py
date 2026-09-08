@@ -10,6 +10,9 @@ class Config:
     TARGET_QUIZ_BOT: str = os.getenv("TARGET_QUIZ_BOT", "BirrForexChallengeBot")
     ANSWER_DELAY_SECONDS: int = int(os.getenv("ANSWER_DELAY_SECONDS", "5"))
 
+    BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
+    ADMIN_TELEGRAM_ID: int = int(os.getenv("ADMIN_TELEGRAM_ID", "0"))
+
     AI_PROVIDER: str = os.getenv("AI_PROVIDER", "openai").lower()
 
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")

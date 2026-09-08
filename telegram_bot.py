@@ -6,6 +6,8 @@ from pyrogram.types import Message, InlineKeyboardMarkup
 from config import config
 from parser import parse_quiz
 from ai_solver import solve_quiz
+from knowledge_base import kb
+from control_bot import notify_admin_quiz_answered
 
 logger = logging.getLogger("telegram_userbot")
 
@@ -36,6 +38,10 @@ async def handle_quiz_message(client: Client, message: Message):
     if not is_target_bot(message, config.TARGET_QUIZ_BOT):
         return
 
+    if not kb.is_auto_answer_enabled:
+        logger.info("Auto-answering is currently disabled via Control Bot. Skipping message.")
+        return
+
     text = message.text or message.caption or ""
     inline_buttons = extract_inline_buttons(message.reply_markup)
 
@@ -59,6 +65,7 @@ async def handle_quiz_message(client: Client, message: Message):
             await asyncio.sleep(config.ANSWER_DELAY_SECONDS)
 
         await submit_answer(client, message, answer_key, parsed.options)
+        await notify_admin_quiz_answered(parsed.question, parsed.options, answer_key, status=f"Submitted in {config.ANSWER_DELAY_SECONDS}s")
     except Exception as e:
         logger.exception(f"Error processing quiz message: {e}")
 

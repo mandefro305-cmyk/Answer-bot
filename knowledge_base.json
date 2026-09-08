@@ -1,0 +1,16 @@
+{
+  "documents": {},
+  "is_auto_answer_enabled": true,
+  "last_quiz": {
+    "question": "Question: What is 2+2?",
+    "options": {
+      "A": "3",
+      "B": "4",
+      "C": "5",
+      "D": "6"
+    },
+    "answer_key": "B",
+    "answer_value": "4",
+    "status": "Submitted in 8s"
+  }
+}

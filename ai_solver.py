@@ -2,18 +2,24 @@ import re
 import logging
 from typing import Dict, Optional
 from config import config
+from knowledge_base import kb
 
 logger = logging.getLogger("ai_solver")
 
 def solve_quiz(question: str, options: Dict[str, str], provider: Optional[str] = None) -> Optional[str]:
     """
     Sends question and options to OpenAI or Gemini API and returns the selected option key (A, B, C, or D).
+    Incorporate reference study material from knowledge base if available.
     """
     selected_provider = (provider or config.AI_PROVIDER).lower()
     options_text = "\n".join([f"{key}: {val}" for key, val in options.items()])
 
+    kb_context = kb.get_context_text()
+    context_section = f"Reference Study Material:\n{kb_context}\n\n" if kb_context else ""
+
     prompt = (
         "You are an expert quiz solver. Analyze the following question and select the correct option.\n\n"
+        f"{context_section}"
         f"Question:\n{question}\n\n"
         f"Options:\n{options_text}\n\n"
         "Instructions:\n"
