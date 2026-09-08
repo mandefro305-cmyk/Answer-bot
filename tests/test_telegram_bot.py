@@ -1,7 +1,6 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from telegram_bot import is_target_bot, extract_inline_buttons, submit_answer, handle_quiz_message
-from unittest.mock import patch
 
 def test_is_target_bot():
     msg = MagicMock()
@@ -55,9 +54,7 @@ async def test_handle_quiz_message_with_delay():
 
     with patch("telegram_bot.solve_quiz", return_value="B"), \
          patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
-         patch("telegram_bot.config") as mock_config:
-        mock_config.TARGET_QUIZ_BOT = "BirrForexChallengeBot"
-        mock_config.ANSWER_DELAY_SECONDS = 8
+         patch("telegram_bot.kb.get_setting", return_value=8):
 
         await handle_quiz_message(client, message)
 

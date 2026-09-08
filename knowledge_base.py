@@ -1,10 +1,14 @@
 import os
 import json
 import re
+import csv
+import io
+import time
 import logging
 from typing import Dict, List, Optional
 from pypdf import PdfReader
 from youtube_transcript_api import YouTubeTranscriptApi
+from config import config
 
 logger = logging.getLogger("knowledge_base")
 
@@ -13,9 +17,17 @@ DATA_FILE = "knowledge_base.json"
 class KnowledgeBase:
     def __init__(self, storage_path: str = DATA_FILE):
         self.storage_path = storage_path
-        self.documents: Dict[str, dict] = {}  # doc_id -> {title, type, text, added_at}
+        self.documents: Dict[str, dict] = {}
         self.is_auto_answer_enabled: bool = True
         self.last_quiz: Optional[dict] = None
+        self.quiz_history: List[dict] = []
+        self.settings: dict = {
+            "answer_delay": config.ANSWER_DELAY_SECONDS,
+            "ai_provider": config.AI_PROVIDER,
+            "ai_model": config.OPENAI_MODEL if config.AI_PROVIDER == "openai" else config.GEMINI_MODEL,
+            "manual_approval_mode": False,
+            "target_bots": [config.TARGET_QUIZ_BOT] if config.TARGET_QUIZ_BOT else ["BirrForexChallengeBot"]
+        }
         self._load()
 
     def _load(self):
@@ -26,6 +38,9 @@ class KnowledgeBase:
                     self.documents = data.get("documents", {})
                     self.is_auto_answer_enabled = data.get("is_auto_answer_enabled", True)
                     self.last_quiz = data.get("last_quiz", None)
+                    self.quiz_history = data.get("quiz_history", [])
+                    loaded_settings = data.get("settings", {})
+                    self.settings.update(loaded_settings)
             except Exception as e:
                 logger.error(f"Failed to load knowledge base file: {e}")
 
@@ -35,13 +50,86 @@ class KnowledgeBase:
                 json.dump({
                     "documents": self.documents,
                     "is_auto_answer_enabled": self.is_auto_answer_enabled,
-                    "last_quiz": self.last_quiz
+                    "last_quiz": self.last_quiz,
+                    "quiz_history": self.quiz_history,
+                    "settings": self.settings
                 }, f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.error(f"Failed to save knowledge base: {e}")
 
+    def get_setting(self, key: str, default=None):
+        return self.settings.get(key, default)
+
+    def set_setting(self, key: str, value):
+        self.settings[key] = value
+        self.save()
+
+    def get_target_bots(self) -> List[str]:
+        bots = self.settings.get("target_bots", [])
+        if not bots:
+            bots = [config.TARGET_QUIZ_BOT] if config.TARGET_QUIZ_BOT else ["BirrForexChallengeBot"]
+        return [b.lstrip("@").strip().lower() for b in bots if b]
+
+    def add_target_bot(self, bot_username: str) -> bool:
+        clean = bot_username.lstrip("@").strip()
+        if not clean:
+            return False
+        current = self.get_target_bots()
+        if clean.lower() not in [c.lower() for c in current]:
+            current_bots = self.settings.get("target_bots", [])
+            current_bots.append(clean)
+            self.settings["target_bots"] = current_bots
+            self.save()
+            return True
+        return False
+
+    def remove_target_bot(self, bot_username: str) -> bool:
+        clean = bot_username.lstrip("@").strip().lower()
+        current_bots = self.settings.get("target_bots", [])
+        new_bots = [b for b in current_bots if b.lstrip("@").strip().lower() != clean]
+        if len(new_bots) != len(current_bots):
+            self.settings["target_bots"] = new_bots
+            self.save()
+            return True
+        return False
+
+    def add_quiz_history(self, question: str, options: dict, answer_key: str, status: str = "Submitted", bot_username: str = ""):
+        record = {
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "bot": bot_username or config.TARGET_QUIZ_BOT,
+            "question": question,
+            "options": options,
+            "answer_key": answer_key,
+            "answer_value": options.get(answer_key, ""),
+            "status": status
+        }
+        self.last_quiz = record
+        self.quiz_history.insert(0, record)  # prepend latest
+        if len(self.quiz_history) > 500:     # keep last 500
+            self.quiz_history = self.quiz_history[:500]
+        self.save()
+
+    def export_quiz_history_csv(self) -> str:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Timestamp", "Target Bot", "Question", "Option A", "Option B", "Option C", "Option D", "Selected Key", "Selected Value", "Status"])
+        for q in self.quiz_history:
+            opts = q.get("options", {})
+            writer.writerow([
+                q.get("timestamp", ""),
+                q.get("bot", ""),
+                q.get("question", ""),
+                opts.get("A", ""),
+                opts.get("B", ""),
+                opts.get("C", ""),
+                opts.get("D", ""),
+                q.get("answer_key", ""),
+                q.get("answer_value", ""),
+                q.get("status", "")
+            ])
+        return output.getvalue()
+
     def add_pdf(self, title: str, pdf_path_or_stream) -> str:
-        """Extracts text from a PDF file/stream and adds it to the knowledge base."""
         reader = PdfReader(pdf_path_or_stream)
         text_pages = []
         for i, page in enumerate(reader.pages):
@@ -64,7 +152,6 @@ class KnowledgeBase:
         return doc_id
 
     def add_youtube(self, url_or_id: str, custom_title: Optional[str] = None) -> str:
-        """Extracts YouTube transcript and adds it to the knowledge base."""
         video_id = self._extract_youtube_id(url_or_id)
         if not video_id:
             raise ValueError("Invalid YouTube URL or Video ID.")
@@ -107,7 +194,6 @@ class KnowledgeBase:
         return None
 
     def get_context_text(self) -> str:
-        """Returns all knowledge base text concatenated to be included in LLM prompts."""
         if not self.documents:
             return ""
 
@@ -127,14 +213,7 @@ class KnowledgeBase:
         self.documents = {}
         self.save()
 
-    def set_last_quiz(self, question: str, options: dict, answer_key: str, status: str = "Submitted"):
-        self.last_quiz = {
-            "question": question,
-            "options": options,
-            "answer_key": answer_key,
-            "answer_value": options.get(answer_key, ""),
-            "status": status
-        }
-        self.save()
+    def set_last_quiz(self, question: str, options: dict, answer_key: str, status: str = "Submitted", bot_username: str = ""):
+        self.add_quiz_history(question, options, answer_key, status, bot_username)
 
 kb = KnowledgeBase()

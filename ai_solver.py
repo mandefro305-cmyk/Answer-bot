@@ -6,12 +6,14 @@ from knowledge_base import kb
 
 logger = logging.getLogger("ai_solver")
 
-def solve_quiz(question: str, options: Dict[str, str], provider: Optional[str] = None) -> Optional[str]:
+def solve_quiz(question: str, options: Dict[str, str], provider: Optional[str] = None, model: Optional[str] = None) -> Optional[str]:
     """
     Sends question and options to OpenAI or Gemini API and returns the selected option key (A, B, C, or D).
     Incorporate reference study material from knowledge base if available.
     """
-    selected_provider = (provider or config.AI_PROVIDER).lower()
+    selected_provider = (provider or kb.get_setting("ai_provider", config.AI_PROVIDER)).lower()
+    selected_model = model or kb.get_setting("ai_model")
+
     options_text = "\n".join([f"{key}: {val}" for key, val in options.items()])
 
     kb_context = kb.get_context_text()
@@ -38,14 +40,15 @@ def solve_quiz(question: str, options: Dict[str, str], provider: Optional[str] =
     used_provider = None
     for p in providers_to_try:
         try:
+            p_model = selected_model if p == selected_provider else None
             if p == "gemini":
                 if not config.GEMINI_API_KEY:
                     continue
-                raw_answer = _solve_with_gemini(prompt)
+                raw_answer = _solve_with_gemini(prompt, model=p_model)
             else:
                 if not config.OPENAI_API_KEY:
                     continue
-                raw_answer = _solve_with_openai(prompt)
+                raw_answer = _solve_with_openai(prompt, model=p_model)
 
             if raw_answer:
                 used_provider = p
@@ -59,10 +62,10 @@ def solve_quiz(question: str, options: Dict[str, str], provider: Optional[str] =
 
     # Parse key from answer
     answer_key = _extract_option_key(raw_answer, list(options.keys()))
-    logger.info(f"AI Provider '{selected_provider}' answered: raw='{raw_answer}', parsed='{answer_key}'")
+    logger.info(f"AI Provider '{used_provider}' (requested: {selected_provider}) answered: raw='{raw_answer}', parsed='{answer_key}'")
     return answer_key
 
-def _solve_with_openai(prompt: str) -> str:
+def _solve_with_openai(prompt: str, model: Optional[str] = None) -> str:
     if not config.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not configured in environment")
 
@@ -75,9 +78,10 @@ def _solve_with_openai(prompt: str) -> str:
         client_kwargs["base_url"] = base_url
 
     client = OpenAI(**client_kwargs)
+    chosen_model = model or config.OPENAI_MODEL
 
     response = client.chat.completions.create(
-        model=config.OPENAI_MODEL,
+        model=chosen_model,
         messages=[
             {"role": "system", "content": "You are a precise multiple-choice quiz solver."},
             {"role": "user", "content": prompt}
@@ -87,15 +91,16 @@ def _solve_with_openai(prompt: str) -> str:
 
     return response.choices[0].message.content or ""
 
-def _solve_with_gemini(prompt: str) -> str:
+def _solve_with_gemini(prompt: str, model: Optional[str] = None) -> str:
     if not config.GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is not configured in environment")
 
     from google import genai
     client = genai.Client(api_key=config.GEMINI_API_KEY)
+    chosen_model = model or config.GEMINI_MODEL
 
     response = client.models.generate_content(
-        model=config.GEMINI_MODEL,
+        model=chosen_model,
         contents=prompt
     )
 

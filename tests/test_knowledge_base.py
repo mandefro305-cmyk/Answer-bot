@@ -33,6 +33,25 @@ def test_toggle_and_last_quiz(temp_kb):
     temp_kb.is_auto_answer_enabled = False
     temp_kb.save()
 
-    temp_kb.set_last_quiz("What is leverage?", {"A": "1:100", "B": "1:1"}, "A")
+    temp_kb.set_last_quiz("What is leverage?", {"A": "1:100", "B": "1:1"}, "A", bot_username="BirrForexChallengeBot")
     assert temp_kb.last_quiz["question"] == "What is leverage?"
     assert temp_kb.last_quiz["answer_key"] == "A"
+    assert temp_kb.last_quiz["bot"] == "BirrForexChallengeBot"
+
+def test_settings_and_bots(temp_kb):
+    temp_kb.set_setting("answer_delay", 8)
+    assert temp_kb.get_setting("answer_delay") == 8
+
+    added = temp_kb.add_target_bot("@AnotherQuizBot")
+    assert added is True
+    assert "anotherquizbot" in temp_kb.get_target_bots()
+
+    removed = temp_kb.remove_target_bot("AnotherQuizBot")
+    assert removed is True
+    assert "anotherquizbot" not in temp_kb.get_target_bots()
+
+def test_export_csv(temp_kb):
+    temp_kb.add_quiz_history("Q1", {"A": "OptA", "B": "OptB"}, "A", status="Submitted", bot_username="testbot")
+    csv_str = temp_kb.export_quiz_history_csv()
+    assert "Timestamp,Target Bot,Question" in csv_str
+    assert "testbot,Q1,OptA" in csv_str
