@@ -198,6 +198,18 @@ def setup_control_bot(app: Client):
         else:
             await message.reply_text(f"⚠️ `{bot_user}` is already in the target bot list.")
 
+    @app.on_message(filters.command("setmodel") & filters.private)
+    async def set_model_command(client: Client, message: Message):
+        if not is_admin(message.from_user.id):
+            return
+        parts = message.text.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].strip():
+            await message.reply_text("Usage: `/setmodel <model_name>`\nExample: `/setmodel DeepSeek V4 Flash`")
+            return
+        model_name = parts[1].strip()
+        kb.set_setting("ai_model", model_name)
+        await message.reply_text(f"✅ Active AI Model set to: `{model_name}`")
+
     @app.on_callback_query()
     async def callback_handler(client: Client, callback: CallbackQuery):
         if not is_admin(callback.from_user.id):
@@ -281,15 +293,21 @@ def setup_control_bot(app: Client):
 
         elif data == "menu_ai_opts":
             kb_ai = InlineKeyboardMarkup([
-                [InlineKeyboardButton("OpenAI (gpt-4o-mini)", callback_data="set_ai:openai:gpt-4o-mini")],
-                [InlineKeyboardButton("OpenAI (gpt-4o)", callback_data="set_ai:openai:gpt-4o")],
+                [InlineKeyboardButton("DeepSeek V4 Flash", callback_data="set_ai:openai:DeepSeek V4 Flash")],
+                [InlineKeyboardButton("GLM-5.3", callback_data="set_ai:openai:GLM-5.3")],
+                [InlineKeyboardButton("Claude Opus 5", callback_data="set_ai:openai:Claude Opus 5")],
+                [InlineKeyboardButton("Claude Opus 4.8", callback_data="set_ai:openai:Claude Opus 4.8")],
+                [InlineKeyboardButton("GPT-5.6 Sol", callback_data="set_ai:openai:GPT-5.6 Sol")],
+                [InlineKeyboardButton("GPT-6 Astra", callback_data="set_ai:openai:GPT-6 Astra")],
+                [InlineKeyboardButton("Claude Fable-5", callback_data="set_ai:openai:Claude Fable-5")],
+                [InlineKeyboardButton("gpt-4o-mini", callback_data="set_ai:openai:gpt-4o-mini")],
                 [InlineKeyboardButton("Gemini (gemini-2.5-flash)", callback_data="set_ai:gemini:gemini-2.5-flash")],
                 [InlineKeyboardButton("🔙 Back to Menu", callback_data="menu_refresh")]
             ])
             curr_p = kb.get_setting("ai_provider", config.AI_PROVIDER)
             curr_m = kb.get_setting("ai_model", config.OPENAI_MODEL)
             await callback.message.edit_text(
-                f"🤖 **Select AI Provider & Model**\nCurrent: `{curr_p.upper()}` ({curr_m})\n\nSelect desired model:",
+                f"🤖 **Select AI Provider & Model**\nCurrent: `{curr_p.upper()}` ({curr_m})\n\nSelect desired model (or send `/setmodel <name>`):",
                 reply_markup=kb_ai
             )
 

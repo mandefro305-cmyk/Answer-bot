@@ -12,6 +12,11 @@ def test_get_main_menu_keyboard():
     assert keyboard is not None
     assert len(keyboard.inline_keyboard) >= 4
 
+def test_custom_model_selection():
+    from knowledge_base import kb
+    kb.set_setting("ai_model", "DeepSeek V4 Flash")
+    assert kb.get_setting("ai_model") == "DeepSeek V4 Flash"
+
 @pytest.mark.asyncio
 async def test_notify_admin_quiz_answered():
     mock_app = AsyncMock()
