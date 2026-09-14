@@ -274,55 +274,75 @@ class KnowledgeBase:
 
     def _fetch_youtube_via_ytdlp(self, video_id: str) -> Optional[str]:
         url = f"https://www.youtube.com/watch?v={video_id}"
-        ydl_opts = {'skip_download': True, 'quiet': True}
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            subs = info.get('subtitles') or {}
-            auto_subs = info.get('automatic_captions') or {}
-            all_subs = {**auto_subs, **subs}
+        # Try different player_client configurations to bypass cloud/datacenter IP blocks (e.g. Railway, AWS)
+        client_options = [
+            ['android', 'ios', 'mweb', 'web'],
+            ['android_creator', 'android'],
+            ['ios', 'android'],
+            ['mweb', 'android'],
+            ['web']
+        ]
 
-            if not all_subs:
-                return None
+        for client_list in client_options:
+            ydl_opts = {
+                'skip_download': True,
+                'quiet': True,
+                'no_warnings': True,
+                'extractor_args': {'youtube': {'player_client': client_list}}
+            }
 
-            pref_langs = ['am-orig', 'am', 'en'] + [k for k in all_subs.keys() if k not in ['am-orig', 'am', 'en']]
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    subs = info.get('subtitles') or {}
+                    auto_subs = info.get('automatic_captions') or {}
+                    all_subs = {**auto_subs, **subs}
 
-            for lang in pref_langs:
-                if lang in all_subs:
-                    formats = all_subs[lang]
-                    json3_fmt = next((f for f in formats if f.get('ext') == 'json3'), None)
-                    vtt_fmt = next((f for f in formats if f.get('ext') == 'vtt'), None)
-                    chosen_fmt = json3_fmt or vtt_fmt or (formats[0] if formats else None)
+                    if not all_subs:
+                        continue
 
-                    if chosen_fmt and chosen_fmt.get('url'):
-                        sub_url = chosen_fmt['url']
-                        try:
-                            req = urllib.request.Request(
-                                sub_url,
-                                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-                            )
-                            with urllib.request.urlopen(req) as resp:
-                                content = resp.read().decode('utf-8')
-                                if chosen_fmt.get('ext') == 'json3':
-                                    data = json.loads(content)
-                                    segs = []
-                                    for event in data.get('events', []):
-                                        for seg in event.get('segs', []):
-                                            txt = seg.get('utf8', '').strip()
-                                            if txt and txt != '\n':
-                                                segs.append(txt)
-                                    text = " ".join(segs)
-                                else:
-                                    clean = re.sub(r'WEBVTT.*?\n\n', '', content, flags=re.DOTALL)
-                                    clean = re.sub(r'\d\d:\d\d:\d\d\.\d{3} --> \d\d:\d\d:\d\d\.\d{3}.*\n', '', clean)
-                                    clean = re.sub(r'<[^>]+>', '', clean)
-                                    lines = [l.strip() for l in clean.splitlines() if l.strip()]
-                                    text = " ".join(lines)
+                    pref_langs = ['am-orig', 'am', 'en'] + [k for k in all_subs.keys() if k not in ['am-orig', 'am', 'en']]
 
-                                if text and text.strip():
-                                    return text.strip()
-                        except Exception as err:
-                            logger.debug(f"Failed fetching caption track '{lang}' for {video_id}: {err}")
+                    for lang in pref_langs:
+                        if lang in all_subs:
+                            formats = all_subs[lang]
+                            json3_fmt = next((f for f in formats if f.get('ext') == 'json3'), None)
+                            vtt_fmt = next((f for f in formats if f.get('ext') == 'vtt'), None)
+                            chosen_fmt = json3_fmt or vtt_fmt or (formats[0] if formats else None)
+
+                            if chosen_fmt and chosen_fmt.get('url'):
+                                sub_url = chosen_fmt['url']
+                                try:
+                                    req = urllib.request.Request(
+                                        sub_url,
+                                        headers={'User-Agent': 'com.google.android.youtube/19.29.37 (Linux; U; Android 11; US)'}
+                                    )
+                                    with urllib.request.urlopen(req, timeout=10) as resp:
+                                        content = resp.read().decode('utf-8')
+                                        if chosen_fmt.get('ext') == 'json3':
+                                            data = json.loads(content)
+                                            segs = []
+                                            for event in data.get('events', []):
+                                                for seg in event.get('segs', []):
+                                                    txt = seg.get('utf8', '').strip()
+                                                    if txt and txt != '\n':
+                                                        segs.append(txt)
+                                            text = " ".join(segs)
+                                        else:
+                                            clean = re.sub(r'WEBVTT.*?\n\n', '', content, flags=re.DOTALL)
+                                            clean = re.sub(r'\d\d:\d\d:\d\d\.\d{3} --> \d\d:\d\d:\d\d\.\d{3}.*\n', '', clean)
+                                            clean = re.sub(r'<[^>]+>', '', clean)
+                                            lines = [l.strip() for l in clean.splitlines() if l.strip()]
+                                            text = " ".join(lines)
+
+                                        if text and text.strip():
+                                            return text.strip()
+                                except Exception as err:
+                                    logger.debug(f"Failed fetching caption track '{lang}' for {video_id}: {err}")
+            except Exception as client_err:
+                logger.debug(f"yt-dlp extraction with player_client {client_list} failed for {video_id}: {client_err}")
+
         return None
 
     def _extract_youtube_id(self, url_or_id: str) -> Optional[str]:
