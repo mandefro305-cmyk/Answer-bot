@@ -28,6 +28,22 @@ def test_add_youtube(temp_kb):
         assert doc_id == "yt_dQw4w9WgXcQ"
         assert "EUR USD is the currency pair" in temp_kb.get_context_text()
 
+def test_youtube_ytdlp_fallback(temp_kb):
+    with patch.object(temp_kb, "_fetch_youtube_via_ytdlp", return_value="Prop Firm Trading Rules"):
+        doc_id = temp_kb.add_youtube("https://www.youtube.com/watch?v=h9OrKyzgj-w")
+        assert doc_id == "yt_h9OrKyzgj-w"
+        assert "Prop Firm Trading Rules" in temp_kb.get_context_text()
+
+def test_youtube_failure_raises(temp_kb):
+    with patch.object(temp_kb, "_fetch_youtube_via_ytdlp", return_value=None), \
+         patch("knowledge_base.YouTubeTranscriptApi") as mock_ytt:
+        mock_ytt.return_value.fetch.side_effect = Exception("Blocked IP")
+        if hasattr(mock_ytt, "get_transcript"):
+            mock_ytt.get_transcript.side_effect = Exception("Blocked IP")
+
+        with pytest.raises(ValueError, match="Could not retrieve a transcript"):
+            temp_kb.add_youtube("https://www.youtube.com/watch?v=invalid1234")
+
 def test_toggle_and_last_quiz(temp_kb):
     assert temp_kb.is_auto_answer_enabled is True
     temp_kb.is_auto_answer_enabled = False

@@ -5,9 +5,11 @@ import csv
 import io
 import time
 import logging
+import urllib.request
 from typing import Dict, List, Optional
 from pypdf import PdfReader
 from youtube_transcript_api import YouTubeTranscriptApi
+import yt_dlp
 from config import config
 
 logger = logging.getLogger("knowledge_base")
@@ -171,18 +173,90 @@ class KnowledgeBase:
         return doc_id
 
     def _fetch_youtube_transcript_text(self, video_id: str) -> str:
-        if hasattr(YouTubeTranscriptApi, "get_transcript"):
-            raw = YouTubeTranscriptApi.get_transcript(video_id)
-        else:
-            ytt = YouTubeTranscriptApi()
-            fetched = ytt.fetch(video_id)
-            raw = fetched.to_raw_data() if hasattr(fetched, "to_raw_data") else fetched
+        # Tier 1: yt-dlp direct caption URL extraction
+        try:
+            text = self._fetch_youtube_via_ytdlp(video_id)
+            if text and text.strip():
+                return text.strip()
+        except Exception as e:
+            logger.warning(f"yt-dlp transcript extraction failed for {video_id}: {e}")
 
-        items = []
-        for item in raw:
-            if isinstance(item, dict) and "text" in item:
-                items.append(item["text"])
-        return " ".join(items)
+        # Tier 2: Fallback to youtube-transcript-api
+        try:
+            if hasattr(YouTubeTranscriptApi, "get_transcript"):
+                raw = YouTubeTranscriptApi.get_transcript(video_id)
+            else:
+                ytt = YouTubeTranscriptApi()
+                fetched = ytt.fetch(video_id)
+                raw = fetched.to_raw_data() if hasattr(fetched, "to_raw_data") else fetched
+
+            items = []
+            for item in raw:
+                if isinstance(item, dict) and "text" in item:
+                    items.append(item["text"])
+            res = " ".join(items).strip()
+            if res:
+                return res
+        except Exception as e:
+            logger.warning(f"youtube-transcript-api failed for {video_id}: {e}")
+
+        raise ValueError(
+            f"Could not retrieve a transcript for YouTube video '{video_id}'. "
+            "Please ensure the video has available captions or subtitles."
+        )
+
+    def _fetch_youtube_via_ytdlp(self, video_id: str) -> Optional[str]:
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        ydl_opts = {'skip_download': True, 'quiet': True}
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            subs = info.get('subtitles') or {}
+            auto_subs = info.get('automatic_captions') or {}
+            all_subs = {**auto_subs, **subs}
+
+            if not all_subs:
+                return None
+
+            pref_langs = ['am-orig', 'am', 'en'] + [k for k in all_subs.keys() if k not in ['am-orig', 'am', 'en']]
+
+            for lang in pref_langs:
+                if lang in all_subs:
+                    formats = all_subs[lang]
+                    json3_fmt = next((f for f in formats if f.get('ext') == 'json3'), None)
+                    vtt_fmt = next((f for f in formats if f.get('ext') == 'vtt'), None)
+                    chosen_fmt = json3_fmt or vtt_fmt or (formats[0] if formats else None)
+
+                    if chosen_fmt and chosen_fmt.get('url'):
+                        sub_url = chosen_fmt['url']
+                        try:
+                            req = urllib.request.Request(
+                                sub_url,
+                                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+                            )
+                            with urllib.request.urlopen(req) as resp:
+                                content = resp.read().decode('utf-8')
+                                if chosen_fmt.get('ext') == 'json3':
+                                    data = json.loads(content)
+                                    segs = []
+                                    for event in data.get('events', []):
+                                        for seg in event.get('segs', []):
+                                            txt = seg.get('utf8', '').strip()
+                                            if txt and txt != '\n':
+                                                segs.append(txt)
+                                    text = " ".join(segs)
+                                else:
+                                    clean = re.sub(r'WEBVTT.*?\n\n', '', content, flags=re.DOTALL)
+                                    clean = re.sub(r'\d\d:\d\d:\d\d\.\d{3} --> \d\d:\d\d:\d\d\.\d{3}.*\n', '', clean)
+                                    clean = re.sub(r'<[^>]+>', '', clean)
+                                    lines = [l.strip() for l in clean.splitlines() if l.strip()]
+                                    text = " ".join(lines)
+
+                                if text and text.strip():
+                                    return text.strip()
+                        except Exception as err:
+                            logger.debug(f"Failed fetching caption track '{lang}' for {video_id}: {err}")
+        return None
 
     def _extract_youtube_id(self, url_or_id: str) -> Optional[str]:
         if re.match(r'^[a-zA-Z0-9_-]{11}$', url_or_id):
