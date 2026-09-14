@@ -243,20 +243,27 @@ class KnowledgeBase:
 
         # Tier 2: Fallback to youtube-transcript-api
         try:
+            raw = None
             if hasattr(YouTubeTranscriptApi, "get_transcript"):
                 raw = YouTubeTranscriptApi.get_transcript(video_id)
+            elif hasattr(YouTubeTranscriptApi, "fetch"):
+                raw = YouTubeTranscriptApi.fetch(video_id)
             else:
                 ytt = YouTubeTranscriptApi()
-                fetched = ytt.fetch(video_id)
-                raw = fetched.to_raw_data() if hasattr(fetched, "to_raw_data") else fetched
+                if hasattr(ytt, "fetch"):
+                    fetched = ytt.fetch(video_id)
+                    raw = fetched.to_raw_data() if hasattr(fetched, "to_raw_data") else fetched
+                elif hasattr(ytt, "get_transcript"):
+                    raw = ytt.get_transcript(video_id)
 
-            items = []
-            for item in raw:
-                if isinstance(item, dict) and "text" in item:
-                    items.append(item["text"])
-            res = " ".join(items).strip()
-            if res:
-                return res
+            if raw:
+                items = []
+                for item in raw:
+                    if isinstance(item, dict) and "text" in item:
+                        items.append(item["text"])
+                res = " ".join(items).strip()
+                if res:
+                    return res
         except Exception as e:
             logger.warning(f"youtube-transcript-api failed for {video_id}: {e}")
 

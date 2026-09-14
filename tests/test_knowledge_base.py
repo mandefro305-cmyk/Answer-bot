@@ -47,12 +47,31 @@ def test_youtube_ytdlp_fallback(temp_kb):
         assert doc_id == "yt_h9OrKyzgj-w"
         assert "Prop Firm Trading Rules" in temp_kb.get_context_text()
 
+def test_youtube_api_fallback_versions(temp_kb):
+    # Test fallback to youtube-transcript-api when yt-dlp returns None
+    with patch.object(temp_kb, "_fetch_youtube_via_ytdlp", return_value=None), \
+         patch("knowledge_base.YouTubeTranscriptApi") as mock_ytt_class:
+        mock_instance = MagicMock()
+        mock_instance.fetch.return_value = [{"text": "Sample fallback transcript"}]
+        mock_ytt_class.return_value = mock_instance
+        # Remove class attributes if present on mock
+        if hasattr(mock_ytt_class, "get_transcript"):
+            del mock_ytt_class.get_transcript
+        if hasattr(mock_ytt_class, "fetch"):
+            del mock_ytt_class.fetch
+
+        doc_id = temp_kb.add_youtube("https://www.youtube.com/watch?v=h9OrKyzgj-w")
+        assert doc_id == "yt_h9OrKyzgj-w"
+        assert "Sample fallback transcript" in temp_kb.get_context_text()
+
 def test_youtube_failure_raises(temp_kb):
     with patch.object(temp_kb, "_fetch_youtube_via_ytdlp", return_value=None), \
          patch("knowledge_base.YouTubeTranscriptApi") as mock_ytt:
-        mock_ytt.return_value.fetch.side_effect = Exception("Blocked IP")
+        mock_instance = MagicMock()
+        mock_instance.fetch.side_effect = Exception("Blocked IP")
+        mock_ytt.return_value = mock_instance
         if hasattr(mock_ytt, "get_transcript"):
-            mock_ytt.get_transcript.side_effect = Exception("Blocked IP")
+            del mock_ytt.get_transcript
 
         with pytest.raises(ValueError, match="Could not retrieve a transcript"):
             temp_kb.add_youtube("https://www.youtube.com/watch?v=invalid1234")
