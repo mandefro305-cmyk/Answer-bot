@@ -20,6 +20,19 @@ def test_add_pdf(temp_kb, tmp_path):
         assert len(temp_kb.documents) == 1
         assert "Leverage is a key forex concept" in temp_kb.get_context_text()
 
+def test_add_pdf_ocr_fallback(temp_kb):
+    with patch("knowledge_base.PdfReader") as mock_pdf_reader, \
+         patch.object(temp_kb, "_ocr_pdf_pages") as mock_ocr:
+        mock_page = MagicMock()
+        mock_page.extract_text.return_value = ""  # Scanned image page, empty text
+        mock_pdf_reader.return_value.pages = [mock_page]
+        mock_ocr.return_value = ["Training Section Disclaimer: All Business Involves Risk"]
+
+        doc_id = temp_kb.add_pdf("Scanned Disclaimer", "scanned.pdf")
+        assert doc_id == "pdf_scanned_disclaimer"
+        assert len(temp_kb.documents) == 1
+        assert "Training Section Disclaimer: All Business Involves Risk" in temp_kb.get_context_text()
+
 def test_add_youtube(temp_kb):
     with patch.object(temp_kb, "_fetch_youtube_transcript_text") as mock_fetch:
         mock_fetch.return_value = "Welcome to the lesson on margin level percentage. EUR USD is the currency pair used in this example."

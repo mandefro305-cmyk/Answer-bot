@@ -10,6 +10,15 @@ from typing import Dict, List, Optional
 from pypdf import PdfReader
 from youtube_transcript_api import YouTubeTranscriptApi
 import yt_dlp
+
+try:
+    import pytesseract
+    from PIL import Image
+    from pdf2image import convert_from_bytes, convert_from_path
+    HAS_OCR = True
+except ImportError:
+    HAS_OCR = False
+
 from config import config
 
 logger = logging.getLogger("knowledge_base")
@@ -131,17 +140,68 @@ class KnowledgeBase:
             ])
         return output.getvalue()
 
-    def add_pdf(self, title: str, pdf_path_or_stream) -> str:
-        reader = PdfReader(pdf_path_or_stream)
-        text_pages = []
-        for i, page in enumerate(reader.pages):
-            txt = page.extract_text() or ""
-            if txt.strip():
-                text_pages.append(f"--- Page {i+1} ---\n{txt.strip()}")
+    def _ocr_pdf_pages(self, pdf_path_or_stream) -> List[str]:
+        if not HAS_OCR:
+            return []
+        try:
+            images = []
+            if isinstance(pdf_path_or_stream, (str, os.PathLike)):
+                images = convert_from_path(pdf_path_or_stream)
+            elif isinstance(pdf_path_or_stream, bytes):
+                images = convert_from_bytes(pdf_path_or_stream)
+            elif hasattr(pdf_path_or_stream, "read"):
+                if hasattr(pdf_path_or_stream, "seek"):
+                    pdf_path_or_stream.seek(0)
+                content = pdf_path_or_stream.read()
+                if hasattr(pdf_path_or_stream, "seek"):
+                    pdf_path_or_stream.seek(0)
+                images = convert_from_bytes(content)
 
-        extracted_text = "\n\n".join(text_pages).strip()
+            ocr_texts = []
+            for img in images:
+                txt = pytesseract.image_to_string(img) or ""
+                ocr_texts.append(txt.strip())
+            return ocr_texts
+        except Exception as e:
+            logger.warning(f"OCR pdf conversion failed: {e}")
+            return []
+
+    def add_pdf(self, title: str, pdf_path_or_stream) -> str:
+        data_bytes = None
+        if hasattr(pdf_path_or_stream, "read") and not isinstance(pdf_path_or_stream, (str, os.PathLike, bytes)):
+            if hasattr(pdf_path_or_stream, "seek"):
+                pdf_path_or_stream.seek(0)
+            data_bytes = pdf_path_or_stream.read()
+            if hasattr(pdf_path_or_stream, "seek"):
+                pdf_path_or_stream.seek(0)
+            pdf_src = io.BytesIO(data_bytes)
+        else:
+            pdf_src = pdf_path_or_stream
+
+        reader = PdfReader(pdf_src)
+        text_pages = []
+        pages_needing_ocr = []
+
+        for i, page in enumerate(reader.pages):
+            txt = (page.extract_text() or "").strip()
+            if txt:
+                text_pages.append((i, txt))
+            else:
+                pages_needing_ocr.append(i)
+
+        if pages_needing_ocr and HAS_OCR:
+            ocr_src = data_bytes if data_bytes is not None else pdf_path_or_stream
+            ocr_results = self._ocr_pdf_pages(ocr_src)
+            for page_idx in pages_needing_ocr:
+                if page_idx < len(ocr_results) and ocr_results[page_idx]:
+                    text_pages.append((page_idx, ocr_results[page_idx]))
+
+        text_pages.sort(key=lambda x: x[0])
+        formatted_pages = [f"--- Page {idx+1} ---\n{text}" for idx, text in text_pages if text.strip()]
+        extracted_text = "\n\n".join(formatted_pages).strip()
+
         if not extracted_text:
-            raise ValueError("No readable text found in PDF document.")
+            raise ValueError("No readable text found in PDF document (including OCR scan).")
 
         doc_id = f"pdf_{title.lower().replace(' ', '_')}"
         self.documents[doc_id] = {
