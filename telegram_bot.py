@@ -41,7 +41,42 @@ def extract_inline_buttons(reply_markup: Optional[InlineKeyboardMarkup]) -> List
                     buttons.append(btn.text)
     return buttons
 
+import re
+
+CHALLENGE_KEYWORDS = ["join challenge", "start challenge", "open challenge", "enter challenge", "play challenge"]
+
+async def handle_channel_challenge_trigger(client: Client, message: Message) -> bool:
+    if not message.reply_markup or not message.reply_markup.inline_keyboard:
+        return False
+
+    for row in message.reply_markup.inline_keyboard:
+        for btn in row:
+            btn_text = (btn.text or "").strip().lower()
+            if any(kw in btn_text for kw in CHALLENGE_KEYWORDS):
+                logger.info(f"Challenge trigger button detected: '{btn.text}' in message {message.id}")
+                # Check if it's a URL deep link to a bot
+                if hasattr(btn, "url") and btn.url:
+                    match = re.search(r"t(?:elegram)?\.me/([A-Za-z0-9_]+)(?:\?start=(.+))?", btn.url)
+                    if match:
+                        bot_username = match.group(1)
+                        start_param = match.group(2)
+                        cmd = f"/start {start_param}" if start_param else "/start"
+                        logger.info(f"Opening deep-link bot @{bot_username} with command '{cmd}'")
+                        await client.send_message(bot_username, cmd)
+                        return True
+                # Otherwise click the inline callback button
+                try:
+                    logger.info(f"Clicking challenge inline button '{btn.text}'")
+                    await message.click(btn.text)
+                    return True
+                except Exception as e:
+                    logger.error(f"Failed to click challenge button '{btn.text}': {e}")
+    return False
+
 async def handle_quiz_message(client: Client, message: Message):
+    # Check if this message is a channel announcement / challenge trigger button
+    await handle_channel_challenge_trigger(client, message)
+
     if not is_target_bot(message):
         return
 

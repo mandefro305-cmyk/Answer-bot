@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from telegram_bot import is_target_bot, extract_inline_buttons, submit_answer, handle_quiz_message
+from telegram_bot import is_target_bot, extract_inline_buttons, submit_answer, handle_quiz_message, handle_channel_challenge_trigger
 
 def test_is_target_bot():
     msg = MagicMock()
@@ -60,3 +60,20 @@ async def test_handle_quiz_message_with_delay():
 
         mock_sleep.assert_called_once_with(8)
         message.reply_text.assert_called_once_with("B")
+
+@pytest.mark.asyncio
+async def test_handle_channel_challenge_trigger():
+    client = MagicMock()
+    client.send_message = AsyncMock()
+    message = MagicMock()
+    message.click = AsyncMock()
+
+    btn = MagicMock()
+    btn.text = "🚀 JOIN CHALLENGE NOW"
+    btn.url = "https://t.me/BirrForexChallengeBot?start=quiz123"
+
+    message.reply_markup.inline_keyboard = [[btn]]
+
+    res = await handle_channel_challenge_trigger(client, message)
+    assert res is True
+    client.send_message.assert_called_once_with("BirrForexChallengeBot", "/start quiz123")
