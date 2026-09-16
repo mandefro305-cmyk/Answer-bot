@@ -293,10 +293,11 @@ def setup_control_bot(app: Client):
 
         elif data == "menu_ai_opts":
             kb_ai = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Groq - Llama 3.3 70B (Free)", callback_data="set_ai:groq:llama-3.3-70b-versatile")],
+                [InlineKeyboardButton("Groq - GPT-OSS 120B (Default)", callback_data="set_ai:groq:openai/gpt-oss-120b")],
+                [InlineKeyboardButton("Groq - GPT-OSS 20B", callback_data="set_ai:groq:openai/gpt-oss-20b")],
+                [InlineKeyboardButton("Groq - Llama 3.3 70B", callback_data="set_ai:groq:llama-3.3-70b-versatile")],
                 [InlineKeyboardButton("Groq - Llama 3.1 8B (Fast)", callback_data="set_ai:groq:llama-3.1-8b-instant")],
                 [InlineKeyboardButton("Groq - Qwen 2.5 32B", callback_data="set_ai:groq:qwen/qwen3.8-27b")],
-                [InlineKeyboardButton("Groq - GPT-OSS 20B", callback_data="set_ai:groq:openai/gpt-oss-20b")],
                 [InlineKeyboardButton("Groq - Compound Model", callback_data="set_ai:groq:groq/compound")],
                 [InlineKeyboardButton("DeepSeek V4 Flash", callback_data="set_ai:openai:DeepSeek V4 Flash")],
                 [InlineKeyboardButton("Claude Opus 5", callback_data="set_ai:openai:Claude Opus 5")],
