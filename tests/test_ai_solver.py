@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from ai_solver import solve_quiz, _solve_with_openai, _solve_with_gemini
+from ai_solver import solve_quiz, _solve_with_openai, _solve_with_gemini, _solve_with_groq
 
 @patch("config.config.OPENAI_API_KEY", "mock-openai-key")
 @patch("ai_solver._solve_with_openai")
@@ -48,6 +48,30 @@ def test_gemini_api_call(mock_genai_cls):
 
     res = _solve_with_gemini("Test prompt")
     assert res == "D"
+
+@patch("config.config.GROQ_API_KEY", "mock-groq-key")
+@patch("ai_solver._solve_with_groq")
+def test_solve_quiz_groq(mock_groq):
+    mock_groq.return_value = "C"
+    question = "What is leverage?"
+    options = {"A": "1:1", "B": "1:10", "C": "1:100"}
+
+    ans = solve_quiz(question, options, provider="groq")
+    assert ans == "C"
+    mock_groq.assert_called_once()
+
+@patch("config.config.GROQ_API_KEY", "mock-groq-key")
+@patch("openai.OpenAI")
+def test_groq_api_call(mock_openai_cls):
+    mock_client = MagicMock()
+    mock_openai_cls.return_value = mock_client
+
+    mock_completion = MagicMock()
+    mock_completion.choices = [MagicMock(message=MagicMock(content="A"))]
+    mock_client.chat.completions.create.return_value = mock_completion
+
+    res = _solve_with_groq("Test prompt")
+    assert res == "A"
 
 @patch("config.config.OPENAI_API_KEY", "mock-openai-key")
 @patch("config.config.GEMINI_API_KEY", "mock-gemini-key")

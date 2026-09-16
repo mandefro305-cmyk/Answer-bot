@@ -293,13 +293,13 @@ def setup_control_bot(app: Client):
 
         elif data == "menu_ai_opts":
             kb_ai = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Groq - Llama 3.3 70B (Free)", callback_data="set_ai:groq:llama-3.3-70b-versatile")],
+                [InlineKeyboardButton("Groq - Llama 3.1 8B (Fast)", callback_data="set_ai:groq:llama-3.1-8b-instant")],
+                [InlineKeyboardButton("Groq - Qwen 2.5 32B", callback_data="set_ai:groq:qwen/qwen3.8-27b")],
+                [InlineKeyboardButton("Groq - GPT-OSS 20B", callback_data="set_ai:groq:openai/gpt-oss-20b")],
+                [InlineKeyboardButton("Groq - Compound Model", callback_data="set_ai:groq:groq/compound")],
                 [InlineKeyboardButton("DeepSeek V4 Flash", callback_data="set_ai:openai:DeepSeek V4 Flash")],
-                [InlineKeyboardButton("GLM-5.3", callback_data="set_ai:openai:GLM-5.3")],
                 [InlineKeyboardButton("Claude Opus 5", callback_data="set_ai:openai:Claude Opus 5")],
-                [InlineKeyboardButton("Claude Opus 4.8", callback_data="set_ai:openai:Claude Opus 4.8")],
-                [InlineKeyboardButton("GPT-5.6 Sol", callback_data="set_ai:openai:GPT-5.6 Sol")],
-                [InlineKeyboardButton("GPT-6 Astra", callback_data="set_ai:openai:GPT-6 Astra")],
-                [InlineKeyboardButton("Claude Fable-5", callback_data="set_ai:openai:Claude Fable-5")],
                 [InlineKeyboardButton("gpt-4o-mini", callback_data="set_ai:openai:gpt-4o-mini")],
                 [InlineKeyboardButton("Gemini (gemini-2.5-flash)", callback_data="set_ai:gemini:gemini-2.5-flash")],
                 [InlineKeyboardButton("🔙 Back to Menu", callback_data="menu_refresh")]
