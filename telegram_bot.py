@@ -11,6 +11,8 @@ from control_bot import notify_admin_quiz_answered, request_admin_approval
 
 logger = logging.getLogger("telegram_userbot")
 
+user_app: Optional[Client] = None
+
 def is_target_bot(message: Message, target: Optional[str] = None) -> bool:
     if not message.from_user:
         return False
@@ -131,6 +133,9 @@ async def submit_answer(client: Client, message: Message, answer_key: str, optio
     return True
 
 def setup_handlers(app: Client):
+    global user_app
+    user_app = app
+
     @app.on_message(filters.incoming)
     async def message_handler(client: Client, message: Message):
         await handle_quiz_message(client, message)

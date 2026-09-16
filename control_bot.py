@@ -198,6 +198,35 @@ def setup_control_bot(app: Client):
         else:
             await message.reply_text(f"⚠️ `{bot_user}` is already in the target bot list.")
 
+    @app.on_message(filters.command("startbot") & filters.private)
+    async def start_bot_command(client: Client, message: Message):
+        if not is_admin(message.from_user.id):
+            return
+
+        parts = message.text.split(maxsplit=1)
+        target = parts[1].strip() if len(parts) > 1 else ""
+
+        bots_to_start = [target] if target else kb.get_target_bots()
+        if not bots_to_start:
+            await message.reply_text("⚠️ No target bots configured. Add one with `/addbot @birrforex_challenge_bot`.")
+            return
+
+        results = []
+        for b in bots_to_start:
+            clean_b = b.lstrip("@")
+            try:
+                # Send /start using userbot client
+                from telegram_bot import user_app
+                if user_app and user_app.is_connected:
+                    await user_app.send_message(clean_b, "/start")
+                    results.append(f"✅ Sent `/start` to `@{clean_b}`")
+                else:
+                    results.append(f"⚠️ Userbot is not connected yet to send `/start` to `@{clean_b}`.")
+            except Exception as e:
+                results.append(f"❌ Failed to start `@{clean_b}`: {e}")
+
+        await message.reply_text("\n".join(results))
+
     @app.on_message(filters.command("setmodel") & filters.private)
     async def set_model_command(client: Client, message: Message):
         if not is_admin(message.from_user.id):
