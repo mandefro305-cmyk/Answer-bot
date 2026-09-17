@@ -88,3 +88,52 @@ async def test_handle_channel_challenge_trigger():
     res = await handle_channel_challenge_trigger(client, message)
     assert res is True
     client.send_message.assert_called_once_with("BirrForexChallengeBot", "/start quiz123")
+
+@pytest.mark.asyncio
+async def test_submit_answer_native_poll():
+    client = MagicMock()
+    client.vote_poll = AsyncMock()
+    message = MagicMock()
+    message.chat.id = -100123456
+    message.id = 999
+
+    poll_mock = MagicMock()
+    poll_mock.question = "What is the capital of France?"
+    opt1 = MagicMock()
+    opt1.text = "London"
+    opt2 = MagicMock()
+    opt2.text = "Paris"
+    poll_mock.options = [opt1, opt2]
+    message.poll = poll_mock
+
+    options = {"A": "London", "B": "Paris"}
+
+    res = await submit_answer(client, message, "B", options)
+    assert res is True
+    client.vote_poll.assert_called_once_with(-100123456, 999, 1)
+
+@pytest.mark.asyncio
+async def test_handle_quiz_message_native_poll():
+    client = MagicMock()
+    client.vote_poll = AsyncMock()
+    message = MagicMock()
+    message.chat.id = -100123456
+    message.id = 1000
+    message.from_user.username = "QuizBot"
+    message.reply_markup = None
+
+    poll_mock = MagicMock()
+    poll_mock.question = "What is 10 + 20?"
+    opt1 = MagicMock()
+    opt1.text = "20"
+    opt2 = MagicMock()
+    opt2.text = "30"
+    poll_mock.options = [opt1, opt2]
+    message.poll = poll_mock
+
+    with patch("telegram_bot.solve_quiz", return_value="B"), \
+         patch("telegram_bot.is_target_bot", return_value=True), \
+         patch("telegram_bot.kb.get_setting", return_value=0):
+
+        await handle_quiz_message(client, message)
+        client.vote_poll.assert_called_once_with(-100123456, 1000, 1)

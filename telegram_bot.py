@@ -14,11 +14,16 @@ logger = logging.getLogger("telegram_userbot")
 user_app: Optional[Client] = None
 
 def is_target_bot(message: Message, target: Optional[str] = None) -> bool:
-    if not message.from_user:
+    sender_username = ""
+    sender_id = ""
+    if message.from_user:
+        sender_username = (message.from_user.username or "").strip().lower()
+        sender_id = str(message.from_user.id)
+    elif message.sender_chat:
+        sender_username = (message.sender_chat.username or "").strip().lower()
+        sender_id = str(message.sender_chat.id)
+    else:
         return False
-
-    sender_username = (message.from_user.username or "").strip().lower()
-    sender_id = str(message.from_user.id)
 
     if target:
         clean_target = target.lstrip("@").strip().lower()
@@ -98,24 +103,47 @@ async def handle_quiz_message(client: Client, message: Message):
         logger.info("Auto-answering is currently disabled via Control Bot. Skipping message.")
         return
 
-    text = message.text or message.caption or ""
-    inline_buttons = extract_inline_buttons(message.reply_markup)
+    poll_obj = getattr(message, "poll", None)
+    if poll_obj is not None and isinstance(getattr(poll_obj, "question", None), str):
+        question_text = poll_obj.question or ""
+        options = {}
+        poll_opts = getattr(poll_obj, "options", []) or []
+        for i, opt in enumerate(poll_opts):
+            key = chr(65 + i)  # A, B, C, D...
+            opt_text = getattr(opt, "text", str(opt)) if not isinstance(opt, str) else opt
+            options[key] = opt_text
+        parsed_question = question_text
+        parsed_options = options
+    else:
+        text = message.text or message.caption or ""
+        inline_buttons = extract_inline_buttons(message.reply_markup)
 
-    parsed = parse_quiz(text, inline_buttons=inline_buttons)
-    if not parsed:
-        logger.debug("Message received from target bot, but no quiz question detected.")
+        parsed = parse_quiz(text, inline_buttons=inline_buttons)
+        if not parsed:
+            logger.debug("Message received from target bot, but no quiz question detected.")
+            return
+        parsed_question = parsed.question
+        parsed_options = parsed.options
+
+    if not parsed_question or not parsed_options:
+        logger.debug("No valid question/options extracted from target bot message.")
         return
 
-    bot_identifier = message.from_user.username or str(message.from_user.id)
-    logger.info(f"Quiz Question detected from @{bot_identifier}:\nQuestion: {parsed.question}\nOptions: {parsed.options}")
+    bot_identifier = ""
+    if message.from_user:
+        bot_identifier = message.from_user.username or str(message.from_user.id)
+    elif message.sender_chat:
+        bot_identifier = message.sender_chat.username or str(message.sender_chat.id)
+
+    logger.info(f"Quiz Question detected from @{bot_identifier}:\nQuestion: {parsed_question}\nOptions: {parsed_options}")
 
     try:
-        answer_key = solve_quiz(parsed.question, parsed.options)
+        answer_key = solve_quiz(parsed_question, parsed_options)
         if not answer_key:
             logger.error("Could not determine answer from AI solver.")
             return
 
-        logger.info(f"Selected Answer: {answer_key} -> {parsed.options.get(answer_key)}")
+        logger.info(f"Selected Answer: {answer_key} -> {parsed_options.get(answer_key)}")
 
         delay = int(kb.get_setting("answer_delay", config.ANSWER_DELAY_SECONDS))
         if delay > 0:
@@ -125,23 +153,42 @@ async def handle_quiz_message(client: Client, message: Message):
         manual_mode = kb.get_setting("manual_approval_mode", False)
         if manual_mode:
             logger.info("Manual approval mode is ON. Requesting approval from Admin...")
-            approved, chosen_key = await request_admin_approval(parsed.question, parsed.options, answer_key, bot_username=bot_identifier)
+            approved, chosen_key = await request_admin_approval(parsed_question, parsed_options, answer_key, bot_username=bot_identifier)
             if approved:
                 logger.info(f"Admin APPROVED key [{chosen_key}]. Submitting...")
-                await submit_answer(client, message, chosen_key, parsed.options)
-                kb.add_quiz_history(parsed.question, parsed.options, chosen_key, status=f"Approved & Submitted ({delay}s)", bot_username=bot_identifier)
+                await submit_answer(client, message, chosen_key, parsed_options)
+                kb.add_quiz_history(parsed_question, parsed_options, chosen_key, status=f"Approved & Submitted ({delay}s)", bot_username=bot_identifier)
             else:
                 logger.info("Admin REJECTED or approval timed out. Skipping submission.")
-                kb.add_quiz_history(parsed.question, parsed.options, answer_key, status="Rejected / Timed Out", bot_username=bot_identifier)
+                kb.add_quiz_history(parsed_question, parsed_options, answer_key, status="Rejected / Timed Out", bot_username=bot_identifier)
         else:
-            await submit_answer(client, message, answer_key, parsed.options)
-            kb.add_quiz_history(parsed.question, parsed.options, answer_key, status=f"Submitted ({delay}s)", bot_username=bot_identifier)
-            await notify_admin_quiz_answered(parsed.question, parsed.options, answer_key, status=f"Submitted in {delay}s", bot_username=bot_identifier)
+            await submit_answer(client, message, answer_key, parsed_options)
+            kb.add_quiz_history(parsed_question, parsed_options, answer_key, status=f"Submitted ({delay}s)", bot_username=bot_identifier)
+            await notify_admin_quiz_answered(parsed_question, parsed_options, answer_key, status=f"Submitted in {delay}s", bot_username=bot_identifier)
 
     except Exception as e:
         logger.exception(f"Error processing quiz message: {e}")
 
 async def submit_answer(client: Client, message: Message, answer_key: str, options: dict) -> bool:
+    poll_obj = getattr(message, "poll", None)
+    if poll_obj is not None and isinstance(getattr(poll_obj, "question", None), str):
+        opt_keys = list(options.keys())
+        if answer_key in opt_keys:
+            idx = opt_keys.index(answer_key)
+        else:
+            try:
+                idx = ord(answer_key.upper()) - 65
+            except Exception:
+                idx = 0
+
+        logger.info(f"Voting in native poll: index {idx} ({answer_key}) for message {message.id}")
+        try:
+            await client.vote_poll(message.chat.id, message.id, idx)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to vote in native poll: {e}")
+            return False
+
     inline_kb = getattr(message.reply_markup, "inline_keyboard", None) if message.reply_markup else None
     if inline_kb:
         # 1. Try matching button prefix e.g. "A", "A)", "A.", "A:"
