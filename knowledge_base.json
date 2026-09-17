@@ -2,7 +2,7 @@
   "documents": {},
   "is_auto_answer_enabled": true,
   "last_quiz": {
-    "timestamp": "2026-09-16 11:31:17",
+    "timestamp": "2026-09-17 09:16:45",
     "bot": "BirrForexChallengeBot",
     "question": "Question: What is 2+2?",
     "options": {
@@ -16,6 +16,62 @@
     "status": "Approved & Submitted (8s)"
   },
   "quiz_history": [
+    {
+      "timestamp": "2026-09-17 09:16:45",
+      "bot": "BirrForexChallengeBot",
+      "question": "Question: What is 2+2?",
+      "options": {
+        "A": "3",
+        "B": "4",
+        "C": "5",
+        "D": "6"
+      },
+      "answer_key": "B",
+      "answer_value": "4",
+      "status": "Approved & Submitted (8s)"
+    },
+    {
+      "timestamp": "2026-09-17 09:16:45",
+      "bot": "BirrForexChallengeBot",
+      "question": "In the section video what is the used currency pair in the example about margin level percentage",
+      "options": {
+        "A": "GBP USD",
+        "B": "XAU USD",
+        "C": "EUR USD",
+        "D": "USD JPY"
+      },
+      "answer_key": "C",
+      "answer_value": "EUR USD",
+      "status": "Submitted (5s)"
+    },
+    {
+      "timestamp": "2026-09-17 09:16:13",
+      "bot": "BirrForexChallengeBot",
+      "question": "Question: What is 2+2?",
+      "options": {
+        "A": "3",
+        "B": "4",
+        "C": "5",
+        "D": "6"
+      },
+      "answer_key": "B",
+      "answer_value": "4",
+      "status": "Approved & Submitted (8s)"
+    },
+    {
+      "timestamp": "2026-09-17 09:16:13",
+      "bot": "BirrForexChallengeBot",
+      "question": "In the section video what is the used currency pair in the example about margin level percentage",
+      "options": {
+        "A": "GBP USD",
+        "B": "XAU USD",
+        "C": "EUR USD",
+        "D": "USD JPY"
+      },
+      "answer_key": "C",
+      "answer_value": "EUR USD",
+      "status": "Submitted (5s)"
+    },
     {
       "timestamp": "2026-09-16 11:31:17",
       "bot": "BirrForexChallengeBot",

@@ -24,6 +24,17 @@ def test_extract_inline_buttons():
     buttons = extract_inline_buttons(reply_markup)
     assert buttons == ["A", "B"]
 
+def test_extract_inline_buttons_with_non_inline_markup():
+    # Test ReplyKeyboardMarkup / ReplyKeyboardRemove without inline_keyboard
+    from pyrogram.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
+    reply_markup = ReplyKeyboardMarkup([["Option A", "Option B"]])
+    buttons = extract_inline_buttons(reply_markup)
+    assert buttons == ["Option A", "Option B"]
+
+    remove_markup = ReplyKeyboardRemove()
+    buttons_remove = extract_inline_buttons(remove_markup)
+    assert buttons_remove == []
+
 @pytest.mark.asyncio
 async def test_submit_answer_button_click():
     client = MagicMock()

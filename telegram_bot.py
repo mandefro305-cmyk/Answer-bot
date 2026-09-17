@@ -32,13 +32,26 @@ def is_target_bot(message: Message, target: Optional[str] = None) -> bool:
 
     return False
 
-def extract_inline_buttons(reply_markup: Optional[InlineKeyboardMarkup]) -> List[str]:
+def extract_inline_buttons(reply_markup) -> List[str]:
     buttons = []
-    if reply_markup and reply_markup.inline_keyboard:
-        for row in reply_markup.inline_keyboard:
+    if not reply_markup:
+        return buttons
+
+    inline_kb = getattr(reply_markup, "inline_keyboard", None)
+    if inline_kb:
+        for row in inline_kb:
             for btn in row:
-                if btn.text:
-                    buttons.append(btn.text)
+                btn_text = getattr(btn, "text", None)
+                if btn_text:
+                    buttons.append(btn_text)
+    else:
+        reply_kb = getattr(reply_markup, "keyboard", None)
+        if reply_kb:
+            for row in reply_kb:
+                for btn in row:
+                    btn_text = getattr(btn, "text", None) if not isinstance(btn, str) else btn
+                    if btn_text:
+                        buttons.append(btn_text)
     return buttons
 
 import re
@@ -46,10 +59,11 @@ import re
 CHALLENGE_KEYWORDS = ["join challenge", "start challenge", "open challenge", "enter challenge", "play challenge"]
 
 async def handle_channel_challenge_trigger(client: Client, message: Message) -> bool:
-    if not message.reply_markup or not message.reply_markup.inline_keyboard:
+    inline_kb = getattr(message.reply_markup, "inline_keyboard", None) if message.reply_markup else None
+    if not inline_kb:
         return False
 
-    for row in message.reply_markup.inline_keyboard:
+    for row in inline_kb:
         for btn in row:
             btn_text = (btn.text or "").strip().lower()
             if any(kw in btn_text for kw in CHALLENGE_KEYWORDS):
@@ -128,11 +142,12 @@ async def handle_quiz_message(client: Client, message: Message):
         logger.exception(f"Error processing quiz message: {e}")
 
 async def submit_answer(client: Client, message: Message, answer_key: str, options: dict) -> bool:
-    if message.reply_markup and message.reply_markup.inline_keyboard:
+    inline_kb = getattr(message.reply_markup, "inline_keyboard", None) if message.reply_markup else None
+    if inline_kb:
         # 1. Try matching button prefix e.g. "A", "A)", "A.", "A:"
-        for row in message.reply_markup.inline_keyboard:
+        for row in inline_kb:
             for btn in row:
-                btn_text = (btn.text or "").strip()
+                btn_text = (getattr(btn, "text", "") or "").strip()
                 if (btn_text.upper() == answer_key or
                     btn_text.upper().startswith(f"{answer_key})") or
                     btn_text.upper().startswith(f"{answer_key}.") or
@@ -146,24 +161,37 @@ async def submit_answer(client: Client, message: Message, answer_key: str, optio
         # 2. Try exact matching option value text in button
         opt_value = options.get(answer_key, "").strip().lower()
         if opt_value:
-            for row in message.reply_markup.inline_keyboard:
+            for row in inline_kb:
                 for btn in row:
-                    btn_text = (btn.text or "").strip()
+                    btn_text = (getattr(btn, "text", "") or "").strip()
                     if opt_value == btn_text.lower():
                         logger.info(f"Clicking inline button by exact value match: '{btn_text}'")
                         await message.click(btn_text)
                         return True
             # Substring fallback
-            for row in message.reply_markup.inline_keyboard:
+            for row in inline_kb:
                 for btn in row:
-                    btn_text = (btn.text or "").strip()
+                    btn_text = (getattr(btn, "text", "") or "").strip()
                     if opt_value in btn_text.lower():
                         logger.info(f"Clicking inline button by substring match: '{btn_text}'")
                         await message.click(btn_text)
                         return True
 
-    # Fallback: send text reply
-    logger.info(f"No matching inline button found. Replying with text: '{answer_key}'")
+    # Fallback for ReplyKeyboardMarkup or plain text: match reply keyboard text or send answer
+    reply_kb = getattr(message.reply_markup, "keyboard", None) if message.reply_markup else None
+    if reply_kb:
+        opt_val = options.get(answer_key, "").strip()
+        for row in reply_kb:
+            for btn in row:
+                btn_text = getattr(btn, "text", btn) if not isinstance(btn, str) else btn
+                btn_str = str(btn_text).strip()
+                if btn_str.upper() == answer_key or (opt_val and opt_val.lower() in btn_str.lower()):
+                    logger.info(f"Replying with matched reply keyboard button text: '{btn_str}'")
+                    await message.reply_text(btn_str)
+                    return True
+
+    # Fallback: send text reply with answer_key
+    logger.info(f"No inline or reply keyboard match found. Replying with text: '{answer_key}'")
     await message.reply_text(answer_key)
     return True
 

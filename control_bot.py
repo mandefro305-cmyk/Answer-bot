@@ -6,6 +6,7 @@ import uuid
 from typing import Optional, Dict, Tuple
 from pyrogram import Client, filters
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.errors import MessageNotModified
 from config import config
 from knowledge_base import kb
 
@@ -241,6 +242,14 @@ def setup_control_bot(app: Client):
 
     @app.on_callback_query()
     async def callback_handler(client: Client, callback: CallbackQuery):
+        try:
+            await _handle_callback_query(client, callback)
+        except MessageNotModified:
+            logger.debug("MessageNotModified ignored in callback handler.")
+        except Exception as e:
+            logger.exception(f"Error handling callback query: {e}")
+
+    async def _handle_callback_query(client: Client, callback: CallbackQuery):
         if not is_admin(callback.from_user.id):
             await callback.answer("Unauthorized", show_alert=True)
             return
