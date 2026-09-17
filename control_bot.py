@@ -199,6 +199,20 @@ def setup_control_bot(app: Client):
         else:
             await message.reply_text(f"⚠️ `{bot_user}` is already in the target bot list.")
 
+    @app.on_message(filters.command(["rembot", "remtarget", "removebot"]) & filters.private)
+    async def remove_bot_command(client: Client, message: Message):
+        if not is_admin(message.from_user.id):
+            return
+        parts = message.text.split()
+        if len(parts) < 2:
+            await message.reply_text("Usage: `/rembot @bot_username` or `/remtarget @bot_username`")
+            return
+        bot_user = parts[1]
+        if kb.remove_target_bot(bot_user):
+            await message.reply_text(f"✅ Removed `{bot_user}` from target bots!")
+        else:
+            await message.reply_text(f"⚠️ `{bot_user}` was not found in the target bot list.")
+
     @app.on_message(filters.command("startbot") & filters.private)
     async def start_bot_command(client: Client, message: Message):
         if not is_admin(message.from_user.id):
@@ -363,17 +377,39 @@ def setup_control_bot(app: Client):
         elif data == "menu_bots":
             bots = kb.get_target_bots()
             bot_list_text = "\n".join([f"• `@{b}`" for b in bots]) if bots else "None"
-            kb_bots = InlineKeyboardMarkup([
-                [InlineKeyboardButton("➕ How to Add Bot", callback_data="bot_info_add")],
-                [InlineKeyboardButton("🔙 Back to Menu", callback_data="menu_refresh")]
-            ])
+            button_rows = []
+            for b in bots:
+                button_rows.append([InlineKeyboardButton(f"❌ Remove @{b}", callback_data=f"rem_bot:{b}")])
+            button_rows.append([InlineKeyboardButton("➕ How to Add Bot", callback_data="bot_info_add")])
+            button_rows.append([InlineKeyboardButton("🔙 Back to Menu", callback_data="menu_refresh")])
+            kb_bots = InlineKeyboardMarkup(button_rows)
             await callback.message.edit_text(
-                f"🎯 **Target Quiz Bots**\n\nCurrently listening to:\n{bot_list_text}\n\nTo add a bot, send command `/addbot @botusername`.",
+                f"🎯 **Target Quiz Bots**\n\nCurrently listening to:\n{bot_list_text}\n\nTo add: `/addbot @username`\nTo remove: `/rembot @username` or click a remove button below.",
+                reply_markup=kb_bots
+            )
+
+        elif data.startswith("rem_bot:"):
+            target_bot = data.split(":", 1)[1]
+            if kb.remove_target_bot(target_bot):
+                await callback.answer(f"Removed @{target_bot}!")
+            else:
+                await callback.answer(f"@{target_bot} not found in target list.")
+            # Refresh bots menu
+            bots = kb.get_target_bots()
+            bot_list_text = "\n".join([f"• `@{b}`" for b in bots]) if bots else "None"
+            button_rows = []
+            for b in bots:
+                button_rows.append([InlineKeyboardButton(f"❌ Remove @{b}", callback_data=f"rem_bot:{b}")])
+            button_rows.append([InlineKeyboardButton("➕ How to Add Bot", callback_data="bot_info_add")])
+            button_rows.append([InlineKeyboardButton("🔙 Back to Menu", callback_data="menu_refresh")])
+            kb_bots = InlineKeyboardMarkup(button_rows)
+            await callback.message.edit_text(
+                f"🎯 **Target Quiz Bots**\n\nCurrently listening to:\n{bot_list_text}\n\nTo add: `/addbot @username`\nTo remove: `/rembot @username` or click a remove button below.",
                 reply_markup=kb_bots
             )
 
         elif data == "bot_info_add":
-            await callback.answer("Send command /addbot @username in chat", show_alert=True)
+            await callback.answer("Send command /addbot @username or /rembot @username in chat", show_alert=True)
 
         elif data == "menu_stats":
             total_quizzes = len(kb.quiz_history)

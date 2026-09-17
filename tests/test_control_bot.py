@@ -17,6 +17,14 @@ def test_custom_model_selection():
     kb.set_setting("ai_model", "DeepSeek V4 Flash")
     assert kb.get_setting("ai_model") == "DeepSeek V4 Flash"
 
+def test_remove_bot_knowledge_base():
+    from knowledge_base import kb
+    kb.add_target_bot("TestBotToRemove")
+    assert "testbottoremove" in kb.get_target_bots()
+    res = kb.remove_target_bot("TestBotToRemove")
+    assert res is True
+    assert "testbottoremove" not in kb.get_target_bots()
+
 @pytest.mark.asyncio
 async def test_notify_admin_quiz_answered():
     mock_app = AsyncMock()
