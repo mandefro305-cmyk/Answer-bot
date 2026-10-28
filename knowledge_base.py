@@ -23,7 +23,7 @@ from config import config
 
 logger = logging.getLogger("knowledge_base")
 
-DATA_FILE = "knowledge_base.json"
+DATA_FILE = os.getenv("KNOWLEDGE_BASE_PATH", "knowledge_base.json")
 
 class KnowledgeBase:
     def __init__(self, storage_path: str = DATA_FILE):

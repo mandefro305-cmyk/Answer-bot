@@ -59,8 +59,12 @@ python main.py
 
 ---
 
-## Deploying on Railway
+## Cloud Deployment
 
+### Deploying on Sevalla
+For detailed instructions on deploying to **Sevalla**, set environment variables, worker processes, and persistent storage volume mounting, refer to the [Sevalla Deployment Guide](SEVALLA.md).
+
+### Deploying on Railway
 1. Push your repository to GitHub.
 2. Go to [Railway.app](https://railway.app) and create a **New Project** -> **Deploy from GitHub repo**.
 3. In your Railway service settings, navigate to **Variables** and set the environment variables from your `.env` file:
@@ -68,8 +72,8 @@ python main.py
    - `TELEGRAM_API_HASH`
    - `TELEGRAM_STRING_SESSION`
    - `TARGET_QUIZ_BOT`
-   - `AI_PROVIDER` (`openai` or `gemini`)
-   - `OPENAI_API_KEY` or `GEMINI_API_KEY`
+   - `AI_PROVIDER` (`openai`, `gemini`, or `groq`)
+   - `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GROQ_API_KEY`
 4. Deploy! Railway will build using the `Dockerfile` / `railway.json` configuration.
 
 ---
