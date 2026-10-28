@@ -23,11 +23,8 @@ Before starting the deployment, make sure you have:
    - Choose **Git Repository** (GitHub / GitLab / Bitbucket).
    - Select your repository and deployment branch (e.g., `main` or `master`).
 4. **Build Configuration**:
-   - Select **Dockerfile** as the build method. Sevalla will automatically detect the repository's `Dockerfile`.
-   - Alternatively, if using Buildpacks/Nixpacks, set the start command to:
-     ```bash
-     python main.py
-     ```
+   - **Recommended**: Select **Dockerfile** as the build method. Sevalla will build using the repository's `Dockerfile`, which includes system packages for PDF processing and OCR (`tesseract-ocr`, `poppler-utils`, `gcc`).
+   - Alternatively, if using **Nixpacks/Buildpacks**, the repository includes a `nixpacks.toml` file that automatically instructs Sevalla to install `tesseract-ocr` and `poppler-utils` during setup.
 5. **Process Type / Application Resource**:
    - Select **Worker / Background Service** (or set HTTP target port to empty/none).
    - *Note*: This application is a long-running Telegram bot client that operates via WebSockets/MTProto, so it does not require an inbound web port.
@@ -93,3 +90,13 @@ By default, cloud containers are stateless and reset when re-deployed. To preser
    INFO - main - All services started successfully. Listening for messages...
    ```
 4. If configured with a `BOT_TOKEN`, open your Control Bot in Telegram and send `/start` to verify full remote control functionality!
+
+---
+
+## Troubleshooting
+
+### PDF Upload Error: "tesseract is not installed or it's not in your PATH"
+If you receive this error when uploading a PDF to the Knowledge Base via the Control Bot:
+1. Ensure your Sevalla Application **Build Method** is set to **Dockerfile**.
+2. If using **Nixpacks**, make sure `nixpacks.toml` is present in the root directory of your repository.
+3. Trigger a **Re-deploy with clear cache** in the Sevalla Dashboard so the system packages (`tesseract-ocr` and `poppler-utils`) are installed during build.
