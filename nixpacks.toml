@@ -1,0 +1,5 @@
+[phases.setup]
+aptPkgs = ["gcc", "build-essential", "poppler-utils", "tesseract-ocr", "tesseract-ocr-eng"]
+
+[start]
+cmd = "python main.py"
