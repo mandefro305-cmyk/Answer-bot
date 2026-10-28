@@ -23,11 +23,11 @@ from config import config
 
 logger = logging.getLogger("knowledge_base")
 
-DATA_FILE = os.getenv("KNOWLEDGE_BASE_PATH", "knowledge_base.json")
+DATA_FILE = os.getenv("KNOWLEDGE_BASE_PATH", "knowledge_base.json").strip()
 
 class KnowledgeBase:
     def __init__(self, storage_path: str = DATA_FILE):
-        self.storage_path = storage_path
+        self.storage_path = storage_path.strip() if storage_path else "knowledge_base.json"
         self.documents: Dict[str, dict] = {}
         self.is_auto_answer_enabled: bool = True
         self.last_quiz: Optional[dict] = None
@@ -57,6 +57,9 @@ class KnowledgeBase:
 
     def save(self):
         try:
+            dirname = os.path.dirname(self.storage_path)
+            if dirname:
+                os.makedirs(dirname, exist_ok=True)
             with open(self.storage_path, "w", encoding="utf-8") as f:
                 json.dump({
                     "documents": self.documents,
