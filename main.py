@@ -44,6 +44,15 @@ async def start_services():
     logger.info(f"Starting Telegram Quiz Userbot (Targeting bot: '{config.TARGET_QUIZ_BOT}')...")
 
     await asyncio.gather(*[app.start() for app in apps])
+
+    # Pre-warm dialog peer cache for userbot to resolve channel peer IDs (e.g., -100...)
+    try:
+        logger.info("Pre-warming userbot dialog peer cache...")
+        async for _ in userbot_app.get_dialogs(limit=200):
+            pass
+    except Exception as e:
+        logger.warning(f"Dialog peer cache pre-warming warning: {e}")
+
     logger.info("All services started successfully. Listening for messages...")
     await asyncio.Event().wait()
 
