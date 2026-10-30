@@ -5,7 +5,7 @@ An automated Telegram Userbot program that listens for multiple-choice quiz ques
 ## Features
 
 - **Automated Quiz Detection**: Listens to questions and option choices (A/B/C/D) from Telegram quiz bots.
-- **Dual AI Engine Support**: Seamlessly switch between OpenAI (`gpt-4o-mini`) and Google Gemini (`gemini-2.5-flash`).
+- **Multi AI Engine Support**: Seamlessly switch between Xkiro (`qwen/qwen3.8-omni-flash:free`), OpenAI (`gpt-4o-mini`), Groq, and Google Gemini (`gemini-2.5-flash`).
 - **Flexible Answer Submission**: Clicks corresponding inline keyboard buttons or sends text replies automatically.
 - **Railway Deployment Ready**: Designed for 24/7 headless operation on Railway using Pyrogram String Sessions.
 
@@ -72,8 +72,8 @@ For detailed instructions on deploying to **Sevalla**, set environment variables
    - `TELEGRAM_API_HASH`
    - `TELEGRAM_STRING_SESSION`
    - `TARGET_QUIZ_BOT`
-   - `AI_PROVIDER` (`openai`, `gemini`, or `groq`)
-   - `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GROQ_API_KEY`
+   - `AI_PROVIDER` (`xkiro`, `openai`, `gemini`, or `groq`)
+   - `XKIRO_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GROQ_API_KEY`
 4. Deploy! Railway will build using the `Dockerfile` / `railway.json` configuration.
 
 ---

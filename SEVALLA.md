@@ -42,11 +42,14 @@ In your application's settings on Sevalla, navigate to **Environment Variables**
 | `TELEGRAM_API_HASH` | Telegram API Hash from my.telegram.org | `a1b2c3d4e5...` |
 | `TELEGRAM_STRING_SESSION` | Pyrogram String Session string | `1BJW...` |
 | `TARGET_QUIZ_BOT` | Primary target quiz bot username | `BirrForexChallengeBot` |
-| `AI_PROVIDER` | Selected AI provider (`openai`, `gemini`, or `groq`) | `openai` |
+| `AI_PROVIDER` | Selected AI provider (`xkiro`, `openai`, `gemini`, or `groq`) | `xkiro` |
 
 ### Provider Specific Keys (at least one required based on `AI_PROVIDER`)
 | Variable Name | Description | Example |
 |---|---|---|
+| `XKIRO_API_KEY` | Xkiro API Key | `xkiro_...` |
+| `XKIRO_BASE_URL` | Xkiro Base URL (default: `https://api.xkiro.com/v1`) | `https://api.xkiro.com/v1` |
+| `XKIRO_MODEL` | Xkiro Model (default: `qwen/qwen3.8-omni-flash:free`) | `qwen/qwen3.8-omni-flash:free` |
 | `OPENAI_API_KEY` | OpenAI API Key | `sk-proj-...` |
 | `OPENAI_MODEL` | OpenAI Model (default: `gpt-4o-mini`) | `gpt-4o-mini` |
 | `OPENAI_BASE_URL` | Optional custom base URL or router endpoint | `https://api.openai.com/v1` |
