@@ -26,4 +26,8 @@ class Config:
     GROQ_BASE_URL: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").strip()
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
+    XKIRO_API_KEY: str = os.getenv("XKIRO_API_KEY", "")
+    XKIRO_BASE_URL: str = os.getenv("XKIRO_BASE_URL", "https://api.xkiro.com/v1").strip()
+    XKIRO_MODEL: str = os.getenv("XKIRO_MODEL", "qwen/qwen3.8-omni-flash:free")
+
 config = Config()

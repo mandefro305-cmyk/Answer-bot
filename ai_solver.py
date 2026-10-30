@@ -32,18 +32,24 @@ def solve_quiz(question: str, options: Dict[str, str], provider: Optional[str] =
     raw_answer = ""
 
     providers_to_try = []
-    if selected_provider == "groq":
-        providers_to_try = ["groq", "openai", "gemini"]
+    if selected_provider == "xkiro":
+        providers_to_try = ["xkiro", "groq", "openai", "gemini"]
+    elif selected_provider == "groq":
+        providers_to_try = ["groq", "xkiro", "openai", "gemini"]
     elif selected_provider == "gemini":
-        providers_to_try = ["gemini", "groq", "openai"]
+        providers_to_try = ["gemini", "xkiro", "groq", "openai"]
     else:
-        providers_to_try = ["openai", "groq", "gemini"]
+        providers_to_try = ["openai", "xkiro", "groq", "gemini"]
 
     used_provider = None
     for p in providers_to_try:
         try:
             p_model = selected_model if p == selected_provider else None
-            if p == "groq":
+            if p == "xkiro":
+                if not config.XKIRO_API_KEY and not config.OPENAI_API_KEY:
+                    continue
+                raw_answer = _solve_with_xkiro(prompt, model=p_model)
+            elif p == "groq":
                 if not config.GROQ_API_KEY and not config.OPENAI_API_KEY:
                     continue
                 raw_answer = _solve_with_groq(prompt, model=p_model)
@@ -85,6 +91,31 @@ def _solve_with_openai(prompt: str, model: Optional[str] = None) -> str:
 
     client = OpenAI(**client_kwargs)
     chosen_model = model or config.OPENAI_MODEL
+
+    response = client.chat.completions.create(
+        model=chosen_model,
+        messages=[
+            {"role": "system", "content": "You are a precise multiple-choice quiz solver."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.0
+    )
+
+    return response.choices[0].message.content or ""
+
+def _solve_with_xkiro(prompt: str, model: Optional[str] = None) -> str:
+    api_key = config.XKIRO_API_KEY or config.OPENAI_API_KEY
+    if not api_key:
+        raise ValueError("XKIRO_API_KEY (or OPENAI_API_KEY) is not configured in environment")
+
+    from openai import OpenAI
+    client_kwargs = {
+        "api_key": api_key,
+        "base_url": config.XKIRO_BASE_URL or "https://api.xkiro.com/v1"
+    }
+
+    client = OpenAI(**client_kwargs)
+    chosen_model = model or config.XKIRO_MODEL
 
     response = client.chat.completions.create(
         model=chosen_model,
