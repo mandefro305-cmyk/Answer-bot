@@ -345,12 +345,14 @@ def setup_control_bot(app: Client):
 
         elif data == "menu_ai_opts":
             kb_ai = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Xkiro - Qwen 3.8 Omni Flash (Free)", callback_data="set_ai:xkiro:qwen/qwen3.8-omni-flash:free")],
+                [InlineKeyboardButton("⚡ Qwen 3.8 Omni Flash (Free)", callback_data="set_ai:xkiro:qwen/qwen3.8-omni-flash:free")],
+                [InlineKeyboardButton("🚀 Gemini 2.0 Flash (Free)", callback_data="set_ai:xkiro:google/gemini-2.0-flash")],
+                [InlineKeyboardButton("⚡ Gemini 2.0 Flash Lite (Free)", callback_data="set_ai:xkiro:google/gemini-2.0-flash-lite")],
+                [InlineKeyboardButton("🧠 Llama 3.3 70B (Free)", callback_data="set_ai:xkiro:meta-llama/llama-3.3-70b-instruct")],
+                [InlineKeyboardButton("🎯 DeepSeek Chat / V3 (Free)", callback_data="set_ai:xkiro:deepseek/deepseek-chat")],
+                [InlineKeyboardButton("🤖 Mistral Small 4 (Free)", callback_data="set_ai:xkiro:mistralai/mistral-small-2603")],
                 [InlineKeyboardButton("Groq - GPT-OSS 120B", callback_data="set_ai:groq:openai/gpt-oss-120b")],
-                [InlineKeyboardButton("Groq - Llama 3.3 70B", callback_data="set_ai:groq:llama-3.3-70b-versatile")],
-                [InlineKeyboardButton("Groq - Llama 3.1 8B (Fast)", callback_data="set_ai:groq:llama-3.1-8b-instant")],
-                [InlineKeyboardButton("gpt-4o-mini", callback_data="set_ai:openai:gpt-4o-mini")],
-                [InlineKeyboardButton("Gemini (gemini-2.5-flash)", callback_data="set_ai:gemini:gemini-2.5-flash")],
+                [InlineKeyboardButton("OpenAI - gpt-4o-mini", callback_data="set_ai:openai:gpt-4o-mini")],
                 [InlineKeyboardButton("🔙 Back to Menu", callback_data="menu_refresh")]
             ])
             curr_p = kb.get_setting("ai_provider", config.AI_PROVIDER)
