@@ -16,17 +16,30 @@ async def start_services():
         logger.error("TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in environment.")
         return
 
-    session = config.TELEGRAM_STRING_SESSION.strip() if config.TELEGRAM_STRING_SESSION else "quiz_userbot"
+    sessions = config.get_session_strings()
+    userbot_apps = []
 
-    userbot_app = Client(
-        name="quiz_userbot_session",
-        api_id=config.TELEGRAM_API_ID,
-        api_hash=config.TELEGRAM_API_HASH,
-        session_string=session if config.TELEGRAM_STRING_SESSION else None
-    )
-    setup_handlers(userbot_app)
+    if sessions:
+        for idx, sess in enumerate(sessions, 1):
+            client = Client(
+                name=f"quiz_userbot_session_{idx}",
+                api_id=config.TELEGRAM_API_ID,
+                api_hash=config.TELEGRAM_API_HASH,
+                session_string=sess
+            )
+            setup_handlers(client)
+            userbot_apps.append(client)
+    else:
+        # Default single session file if no session string provided
+        client = Client(
+            name="quiz_userbot_session",
+            api_id=config.TELEGRAM_API_ID,
+            api_hash=config.TELEGRAM_API_HASH
+        )
+        setup_handlers(client)
+        userbot_apps.append(client)
 
-    apps = [userbot_app]
+    apps = list(userbot_apps)
 
     if config.BOT_TOKEN:
         control_app = Client(
@@ -41,17 +54,18 @@ async def start_services():
     else:
         logger.info("BOT_TOKEN not provided; running Userbot only.")
 
-    logger.info(f"Starting Telegram Quiz Userbot (Targeting bot: '{config.TARGET_QUIZ_BOT}')...")
+    logger.info(f"Starting {len(userbot_apps)} Telegram Quiz Userbot account(s) (Targeting bot: '{config.TARGET_QUIZ_BOT}')...")
 
     await asyncio.gather(*[app.start() for app in apps])
 
-    # Pre-warm dialog peer cache for userbot to resolve channel peer IDs (e.g., -100...)
-    try:
-        logger.info("Pre-warming userbot dialog peer cache...")
-        async for _ in userbot_app.get_dialogs(limit=200):
-            pass
-    except Exception as e:
-        logger.warning(f"Dialog peer cache pre-warming warning: {e}")
+    # Pre-warm dialog peer cache for all userbot instances to resolve channel peer IDs (e.g., -100...)
+    for idx, ub in enumerate(userbot_apps, 1):
+        try:
+            logger.info(f"Pre-warming dialog peer cache for userbot account {idx}...")
+            async for _ in ub.get_dialogs(limit=200):
+                pass
+        except Exception as e:
+            logger.warning(f"Dialog peer cache pre-warming warning for account {idx}: {e}")
 
     logger.info("All services started successfully. Listening for messages...")
     await asyncio.Event().wait()

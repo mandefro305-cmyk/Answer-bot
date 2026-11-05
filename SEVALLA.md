@@ -40,7 +40,8 @@ In your application's settings on Sevalla, navigate to **Environment Variables**
 |---|---|---|
 | `TELEGRAM_API_ID` | Telegram API ID from my.telegram.org | `1234567` |
 | `TELEGRAM_API_HASH` | Telegram API Hash from my.telegram.org | `a1b2c3d4e5...` |
-| `TELEGRAM_STRING_SESSION` | Pyrogram String Session string | `1BJW...` |
+| `TELEGRAM_STRING_SESSION` | Pyrogram String Session string (for single account) | `1BJW...` |
+| `TELEGRAM_STRING_SESSIONS` | *(Optional)* Comma-separated sessions for **multiple accounts** | `session_1,session_2,session_3` |
 | `TARGET_QUIZ_BOT` | Primary target quiz bot username | `BirrForexChallengeBot` |
 | `AI_PROVIDER` | Selected AI provider (`xkiro`, `openai`, `gemini`, or `groq`) | `xkiro` |
 

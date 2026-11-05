@@ -51,7 +51,7 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
-async def notify_admin_quiz_answered(question: str, options: dict, answer_key: str, status: str = "Submitted", bot_username: str = ""):
+async def notify_admin_quiz_answered(question: str, options: dict, answer_key: str, status: str = "Submitted", bot_username: str = "", account_name: str = ""):
     """Sends a real-time report to the admin Telegram account when a quiz is answered."""
     if not control_app or not config.ADMIN_TELEGRAM_ID:
         return
@@ -59,9 +59,11 @@ async def notify_admin_quiz_answered(question: str, options: dict, answer_key: s
     answer_val = options.get(answer_key, "N/A")
     options_text = "\n".join([f"  • {k}: {v}" for k, v in options.items()])
     target_str = f"@{bot_username}" if bot_username else f"@{config.TARGET_QUIZ_BOT}"
+    account_line = f"**Account:** `{account_name}`\n" if account_name else ""
 
     report = (
         "🎯 **Quiz Answered Report**\n\n"
+        f"{account_line}"
         f"**Target Bot:** `{target_str}`\n"
         f"**Question:**\n{question}\n\n"
         f"**Options:**\n{options_text}\n\n"
@@ -74,7 +76,7 @@ async def notify_admin_quiz_answered(question: str, options: dict, answer_key: s
     except Exception as e:
         logger.error(f"Failed to send quiz notification to admin: {e}")
 
-async def request_admin_approval(question: str, options: dict, answer_key: str, bot_username: str = "") -> Tuple[bool, str]:
+async def request_admin_approval(question: str, options: dict, answer_key: str, bot_username: str = "", account_name: str = "") -> Tuple[bool, str]:
     if not control_app or not config.ADMIN_TELEGRAM_ID:
         logger.warning("Control bot or admin ID missing. Cannot request manual approval. Defaulting to True.")
         return True, answer_key
@@ -85,6 +87,7 @@ async def request_admin_approval(question: str, options: dict, answer_key: str, 
 
     options_text = "\n".join([f"  • {k}: {v}" for k, v in options.items()])
     target_str = f"@{bot_username}" if bot_username else f"@{config.TARGET_QUIZ_BOT}"
+    account_line = f"**Account:** `{account_name}`\n" if account_name else ""
 
     buttons = []
     # Button to approve proposed AI answer
@@ -102,6 +105,7 @@ async def request_admin_approval(question: str, options: dict, answer_key: str, 
 
     msg_text = (
         "❓ **Manual Answer Approval Requested**\n\n"
+        f"{account_line}"
         f"**Target Bot:** `{target_str}`\n"
         f"**Question:**\n{question}\n\n"
         f"**Options:**\n{options_text}\n\n"
@@ -226,19 +230,27 @@ def setup_control_bot(app: Client):
             await message.reply_text("⚠️ No target bots configured. Add one with `/addbot @birrforex_challenge_bot`.")
             return
 
+        from telegram_bot import user_apps, user_app, get_account_label
+        clients = user_apps if user_apps else ([user_app] if user_app else [])
+
+        if not clients:
+            await message.reply_text("⚠️ No userbot accounts connected yet to send `/start`.")
+            return
+
         results = []
-        for b in bots_to_start:
-            clean_b = b.lstrip("@")
-            try:
-                # Send /start using userbot client
-                from telegram_bot import user_app
-                if user_app and user_app.is_connected:
-                    await user_app.send_message(clean_b, "/start")
-                    results.append(f"✅ Sent `/start` to `@{clean_b}`")
-                else:
-                    results.append(f"⚠️ Userbot is not connected yet to send `/start` to `@{clean_b}`.")
-            except Exception as e:
-                results.append(f"❌ Failed to start `@{clean_b}`: {e}")
+        for client in clients:
+            acct = get_account_label(client)
+            if not client.is_connected:
+                results.append(f"⚠️ [{acct}] is not connected.")
+                continue
+
+            for b in bots_to_start:
+                clean_b = b.lstrip("@")
+                try:
+                    await client.send_message(clean_b, "/start")
+                    results.append(f"✅ [{acct}] Sent `/start` to `@{clean_b}`")
+                except Exception as e:
+                    results.append(f"❌ [{acct}] Failed to start `@{clean_b}`: {e}")
 
         await message.reply_text("\n".join(results))
 
@@ -416,8 +428,13 @@ def setup_control_bot(app: Client):
             delay_s = kb.get_setting("answer_delay", config.ANSWER_DELAY_SECONDS)
             ai_s = f"{kb.get_setting('ai_provider', config.AI_PROVIDER).upper()} ({kb.get_setting('ai_model', '')})"
 
+            from telegram_bot import user_apps, user_app, get_account_label
+            clients = user_apps if user_apps else ([user_app] if user_app else [])
+            accounts_list = ", ".join([get_account_label(c) for c in clients]) if clients else "None"
+
             text = (
                 "📊 **Bot Performance & Stats**\n\n"
+                f"• **Connected Accounts ({len(clients)}):** `{accounts_list}`\n"
                 f"• **Total Quizzes Answered:** `{total_quizzes}`\n"
                 f"• **Auto-Answer:** {auto_s}\n"
                 f"• **Submission Mode:** {man_s}\n"
