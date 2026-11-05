@@ -7,7 +7,23 @@ class Config:
     TELEGRAM_API_ID: int = int(os.getenv("TELEGRAM_API_ID", "0"))
     TELEGRAM_API_HASH: str = os.getenv("TELEGRAM_API_HASH", "")
     TELEGRAM_STRING_SESSION: str = os.getenv("TELEGRAM_STRING_SESSION", "")
+    TELEGRAM_STRING_SESSIONS: str = os.getenv("TELEGRAM_STRING_SESSIONS", "")
     TARGET_QUIZ_BOT: str = os.getenv("TARGET_QUIZ_BOT", "BirrForexChallengeBot")
+
+    @classmethod
+    def get_session_strings(cls) -> list[str]:
+        """Returns all configured userbot session strings (supports single or comma-separated)."""
+        sessions = []
+        if cls.TELEGRAM_STRING_SESSIONS:
+            for s in cls.TELEGRAM_STRING_SESSIONS.split(","):
+                clean = s.strip()
+                if clean:
+                    sessions.append(clean)
+        elif cls.TELEGRAM_STRING_SESSION:
+            clean = cls.TELEGRAM_STRING_SESSION.strip()
+            if clean:
+                sessions.append(clean)
+        return sessions
     ANSWER_DELAY_SECONDS: int = int(os.getenv("ANSWER_DELAY_SECONDS", "5"))
 
     BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")

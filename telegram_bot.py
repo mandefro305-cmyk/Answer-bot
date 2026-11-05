@@ -12,6 +12,16 @@ from control_bot import notify_admin_quiz_answered, request_admin_approval
 logger = logging.getLogger("telegram_userbot")
 
 user_app: Optional[Client] = None
+user_apps: List[Client] = []
+
+def get_account_label(client: Client) -> str:
+    me = getattr(client, "me", None)
+    if me:
+        if me.username:
+            return f"@{me.username}"
+        first = me.first_name or "Account"
+        return f"{first} ({me.id})"
+    return getattr(client, "name", "Userbot")
 
 def is_target_bot(message: Message, target: Optional[str] = None) -> bool:
     sender_username = ""
@@ -135,7 +145,8 @@ async def handle_quiz_message(client: Client, message: Message):
     elif message.sender_chat:
         bot_identifier = message.sender_chat.username or str(message.sender_chat.id)
 
-    logger.info(f"Quiz Question detected from @{bot_identifier}:\nQuestion: {parsed_question}\nOptions: {parsed_options}")
+    account_label = get_account_label(client)
+    logger.info(f"Quiz Question detected on [{account_label}] from @{bot_identifier}:\nQuestion: {parsed_question}\nOptions: {parsed_options}")
 
     try:
         answer_key = solve_quiz(parsed_question, parsed_options)
@@ -152,19 +163,25 @@ async def handle_quiz_message(client: Client, message: Message):
 
         manual_mode = kb.get_setting("manual_approval_mode", False)
         if manual_mode:
-            logger.info("Manual approval mode is ON. Requesting approval from Admin...")
-            approved, chosen_key = await request_admin_approval(parsed_question, parsed_options, answer_key, bot_username=bot_identifier)
+            logger.info(f"[{account_label}] Manual approval mode is ON. Requesting approval from Admin...")
+            approved, chosen_key = await request_admin_approval(
+                parsed_question, parsed_options, answer_key,
+                bot_username=bot_identifier, account_name=account_label
+            )
             if approved:
-                logger.info(f"Admin APPROVED key [{chosen_key}]. Submitting...")
+                logger.info(f"[{account_label}] Admin APPROVED key [{chosen_key}]. Submitting...")
                 await submit_answer(client, message, chosen_key, parsed_options)
-                kb.add_quiz_history(parsed_question, parsed_options, chosen_key, status=f"Approved & Submitted ({delay}s)", bot_username=bot_identifier)
+                kb.add_quiz_history(parsed_question, parsed_options, chosen_key, status=f"Approved & Submitted ({delay}s) [{account_label}]", bot_username=bot_identifier)
             else:
-                logger.info("Admin REJECTED or approval timed out. Skipping submission.")
-                kb.add_quiz_history(parsed_question, parsed_options, answer_key, status="Rejected / Timed Out", bot_username=bot_identifier)
+                logger.info(f"[{account_label}] Admin REJECTED or approval timed out. Skipping submission.")
+                kb.add_quiz_history(parsed_question, parsed_options, answer_key, status=f"Rejected / Timed Out [{account_label}]", bot_username=bot_identifier)
         else:
             await submit_answer(client, message, answer_key, parsed_options)
-            kb.add_quiz_history(parsed_question, parsed_options, answer_key, status=f"Submitted ({delay}s)", bot_username=bot_identifier)
-            await notify_admin_quiz_answered(parsed_question, parsed_options, answer_key, status=f"Submitted in {delay}s", bot_username=bot_identifier)
+            kb.add_quiz_history(parsed_question, parsed_options, answer_key, status=f"Submitted ({delay}s) [{account_label}]", bot_username=bot_identifier)
+            await notify_admin_quiz_answered(
+                parsed_question, parsed_options, answer_key,
+                status=f"Submitted in {delay}s", bot_username=bot_identifier, account_name=account_label
+            )
 
     except Exception as e:
         logger.exception(f"Error processing quiz message: {e}")
@@ -243,8 +260,10 @@ async def submit_answer(client: Client, message: Message, answer_key: str, optio
     return True
 
 def setup_handlers(app: Client):
-    global user_app
+    global user_app, user_apps
     user_app = app
+    if app not in user_apps:
+        user_apps.append(app)
 
     @app.on_message(filters.incoming)
     async def message_handler(client: Client, message: Message):
